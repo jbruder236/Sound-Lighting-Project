@@ -1,6 +1,6 @@
 # Sound-Lighting-Project
 
-This has been an ongoing project for me since my first semester at UConn. There have been multiple versions of code, along with multiple versions of hardware. The light strips I've used have had different protocols but the fundamental idea has been the same: sound-reactive lighting via a programmed microcontroller.
+This has been an ongoing personal project for me since my first semester at UConn. There have been multiple versions of code, along with multiple versions of hardware. The light strips I've used have had different protocols but the fundamental idea has been the same: sound-reactive lighting via a programmed microcontroller.
 
 ### Using a Raspberry Pi:
   -Analyze sound input via aux using python
