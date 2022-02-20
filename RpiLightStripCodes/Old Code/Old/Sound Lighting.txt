@@ -1,0 +1,19 @@
+Have a potentiometer where its value determines how much to turn lights on 
+(if python spits out 0-100 then the pot can decrease upper bound- so a reading of 80 now means 100% power to LED)
+
+
+Red, Green, and Blue can each represent a range of the spectrum
+
+Use small screen to have a visual of the frequency spectrum
+
+Grab an aux cord so people can aux in and play music
+
+
+Python notes:
+py -3.6 -m pip install pyAudio (run in CMD)
+
+
+Sources:
+https://www.swharden.com/wp/2016-07-19-realtime-audio-visualization-in-python/
+
+^^This source is important - towards the bottom he determines which frequency is producing the loudest tone.

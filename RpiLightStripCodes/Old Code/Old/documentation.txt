@@ -1,0 +1,18 @@
+https://realpython.com/intro-to-pyenv/
+https://youness.net/raspberry-pi/how-to-connect-bluetooth-headset-or-speaker-to-raspberry-pi-3
+https://www.swharden.com/wp/2016-07-19-realtime-audio-visualization-in-python/
+https://sourceforge.net/p/raspberry-gpio-python/wiki/PWM/
+
+python3 /home/pi/Desktop/Sound/pyaudiotest.py
+
+04:52:C7:5B:E8:5C
+
+04_52_C7_5B_E8_5C
+
+pacmd set-card-profile bluez_card.04_52_C7_5B_E8_5C headset_head_unit
+
+pacmd set-card-profile bluez_card.04_52_C7_5B_E8_5C headset_head_unit
+
+pacmd set-default-sink bluez_sink.04_52_C7_5B_E8_5C.headset_head_unit
+
+pacmd set-default-source bluez_source.04_52_C7_5B_E8_5C.headset_head_unit
