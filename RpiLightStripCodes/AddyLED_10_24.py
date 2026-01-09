@@ -33,7 +33,7 @@ LED_CHANNEL    = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
 #PyAudio Config:
 peakMult = .55 #multiplier for the volume variable "peak"
 CHUNK = 2**11
-RATE = 88200
+RATE = 44100
 #RATE = 44100 - Alternative Rate
 p=pyaudio.PyAudio()
 
@@ -58,7 +58,7 @@ def soundLight(strip, wait_ms=20):
         iTime = time.time()
 
         #Audio Sampling:
-        data = np.fromstring(stream.read(CHUNK),dtype=np.int16)
+        data = np.frombuffer(stream.read(CHUNK, exception_on_overflow=False),dtype=np.int16)
         peak = np.average(np.abs(data))*peakMult/100
         peakDelta = peak-lastPeak
         bars = "#"*int(peak/10)
