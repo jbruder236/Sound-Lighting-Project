@@ -1,0 +1,14 @@
+[Unit]
+Description=Sound Lighting - maintain laptop AUX and paired Pi audio
+Wants=pipewire-pulse.service
+After=pipewire-pulse.service
+
+[Service]
+EnvironmentFile=%h/.config/sound-lighting/audio-link.env
+ExecStart=/usr/bin/python3 ${LIGHTING_REPO}/tools/connect_garage_audio.py --pi-address ${PI_BLUETOOTH_ADDRESS} --watch
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=25
+
+[Install]
+WantedBy=default.target
