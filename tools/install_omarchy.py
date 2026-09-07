@@ -45,7 +45,7 @@ def main():
         escaped = escaped.replace(char, '\\' + char)
     desktop.write_text('[Desktop Entry]\nType=Application\nVersion=1.0\nName=Sound Lighting\n'
         'Comment=Garage lights, sound, and Raspberry Pi connection\n'
-        f'Exec=uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.SoundLighting --title="Sound Lighting" -e "{escaped}"\n'
+        f'Exec=setsid uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.SoundLighting --title="Sound Lighting" -e "{escaped}"\n'
         'Icon=sound-lighting\nTerminal=false\nStartupNotify=true\n'
         'StartupWMClass=org.omarchy.SoundLighting\nCategories=AudioVideo;\n'
         'Keywords=Garage;LED;Raspberry;Pi;Sound;Lighting;\n')
