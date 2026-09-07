@@ -9,7 +9,7 @@ import tempfile
 VERSION = '1.1.0-dev'
 CONFIG_PATH = '/etc/sound-lighting.json'
 STATUS_PATH = '/run/sound-lighting/status.json'
-SCENES = ('rainbow', 'aurora', 'sunset', 'ocean', 'ember', 'candy', 'workshop', 'custom')
+SCENES = ('rainbow', 'spectrum', 'aurora', 'sunset', 'ocean', 'ember', 'candy', 'workshop', 'custom')
 
 
 @dataclass(frozen=True)

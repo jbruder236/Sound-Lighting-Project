@@ -15,6 +15,8 @@ from pathlib import Path
 import numpy as np
 from settings import VERSION, SCENES, Settings, SettingsWatcher, atomic_json, read_settings
 
+from spectrum import SpectrumReader, HUES
+
 TARGET = 'lighting_audio'
 RATE, CHUNK = 48000, 1024
 CAPTURE_LATENCY_MS = 20
@@ -63,11 +65,14 @@ def white_rgb(tint):
     return tuple(round(x + (y - x) * mix) for x, y in zip(a, b))
 
 
-def frame(count, elapsed, state, scene='rainbow', color='#ff9646', white=50):
+def frame(count, elapsed, state, scene='rainbow', color='#ff9646', white=50, spectrum=None):
     """Keep the approved saturated palette; crossfade only motion and glow."""
     if scene == 'workshop':
         return [white_rgb(white)] * count
     pixels = []
+    spectral = (scene == 'spectrum' and spectrum and spectrum['rms'] >= state.threshold and
+                max(spectrum['bands']) > 0 and state.mode == 'sound')
+    palette = [colorsys.hsv_to_rgb(h, 1, 1) for h in HUES] if spectral else None
     for i in range(count):
         position = i / max(1, count - 1)
         hue = (position * 0.95 - elapsed / 70 +
@@ -83,7 +88,13 @@ def frame(count, elapsed, state, scene='rainbow', color='#ff9646', white=50):
         idle_wave = 0.5 + 0.5 * math.sin(position * math.tau - elapsed / 7)
         idle_value = 0.76 + 0.18 * idle_wave
         value = (idle_value * (1 - state.mix) + sound_value * state.mix) * state.gain
-        if scene == 'custom':
+        if scene == 'spectrum' and spectral:
+            weights = [energy * (.08 + math.exp(-((position - j / 5) / .3) ** 2))
+                       for j, energy in enumerate(spectrum['bands'])]
+            mixed = [sum(w * rgb[c] for w, rgb in zip(weights, palette)) for c in range(3)]
+            h, saturation, _ = colorsys.rgb_to_hsv(*mixed)
+            rgb = colorsys.hsv_to_rgb(h, max(.85, saturation), value)
+        elif scene == 'custom':
             rgb = tuple(int(color[j:j + 2], 16) / 255 * value for j in (1, 3, 5))
         else:
             rgb = colorsys.hsv_to_rgb(hue, 1.0, value)
@@ -244,6 +255,7 @@ def main():
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, stop)
     reader = AudioReader(args.target, args.audio_user)
+    spectrum_reader = SpectrumReader()
     strip = None
     initialized = False
     max_rms = 0.0
@@ -279,9 +291,10 @@ def main():
             state.update(now, rms, reactive=config.behavior == 'auto' and config.scene != 'workshop')
             if state.mode != previous_mode:
                 print(f'Mode: {state.mode} (RMS={rms:.4f}).', flush=True)
+            features = spectrum_reader.poll(now)
             if strip is not None:
                 desired = np.array(frame(args.count, now - start, state, config.scene,
-                                         config.color, config.white), dtype=float)
+                                         config.color, config.white, features), dtype=float)
                 if previous_pixels is None:
                     previous_pixels = desired
                 else:
@@ -295,7 +308,7 @@ def main():
             if args.status_file and now >= next_status:
                 try:
                     atomic_json(args.status_file, {
-                        **reader.status(now),
+                        **reader.status(now), **spectrum_reader.status(now),
                         'version': VERSION, 'state': 'running', 'updated_at': time.time(),
                         'pid': os.getpid(), 'target': args.target,
                         'uptime_seconds': round(now - start, 1), 'scene': config.scene,
