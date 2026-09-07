@@ -24,7 +24,7 @@ class Backend:
 
     @property
     def connection_text(self):
-        return 'On this Pi · live updates every second'
+        return 'Pi · local'
 
     async def apply(self, **changes):
         return self.save(**changes)

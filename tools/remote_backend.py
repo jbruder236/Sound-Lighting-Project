@@ -42,10 +42,10 @@ class RemoteBackend:
     @property
     def connection_text(self):
         if self.available:
-            return f'{self.host} · connected over SSH · live updates every second'
+            return f'{self.host} · SSH connected'
         left = max(0, self.retry_at - time.monotonic())
         phase = f'Retrying in {left:.0f}s' if left else 'Connecting…'
-        return f'{self.host} · OFFLINE · {phase} · attempt {self.attempts} · {self.error[:90]}'
+        return f'{self.host} · OFFLINE · {phase} · #{self.attempts}'
 
     def settings(self):
         return self.current
@@ -54,7 +54,7 @@ class RemoteBackend:
         return self.data | {'stale': self.data.get('stale', True) or not self.available}
 
     async def audio(self, target=None):
-        return self.graph if self.available else {'error': self.connection_text}
+        return self.graph if self.available else {'error': self.error}
 
     async def apply(self, **changes):
         async with self.lock:

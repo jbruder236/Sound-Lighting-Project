@@ -1,40 +1,43 @@
 Screen { background: $background; color: $foreground; }
-#page { padding: 1 2; }
+#page { padding: 0 1; }
 #brand { color: $primary; text-style: bold; height: 1; }
-#subtitle { color: $text-muted; margin-bottom: 1; height: 1; }
-#health { background: $panel; padding: 0 1; height: 1; margin-bottom: 1; }
+#link { color: $text-muted; height: auto; }
+#health { height: 1; margin-bottom: 1; }
 #panels { height: auto; }
-.panel { border: round $primary-muted; padding: 0 2; height: auto; }
-#controls { width: 1fr; margin-right: 1; }
-#monitor { width: 1fr; }
+.panel { border: round $primary; padding: 0 1; height: auto; }
+#controls { width: 1fr; margin-right: 1; border: round $light-border; }
+#monitor { width: 1fr; border: round $sound-border; }
+#connection { margin-top: 1; border: round $link-border; }
+#controls .eyebrow { color: $light-border; }
+#monitor .eyebrow { color: $sound-border; }
+#connection .eyebrow { color: $link-border; }
 #panels.narrow { layout: vertical; }
 #panels.narrow #controls { width: 100%; margin: 0 0 1 0; }
 #panels.narrow #monitor { width: 100%; }
-.eyebrow { color: $primary; text-style: bold; margin-bottom: 1; }
+.eyebrow { text-style: bold; height: 1; }
 Label { color: $foreground; height: 1; }
 Select { margin: 0 0 1 0; }
-.row { height: 3; }
-Button { min-width: 8; width: 1fr; margin-right: 1; background: $surface; border: tall $surface; }
-Button:hover { background: $primary-muted; border: tall $primary-muted; }
-Button.-primary { background: $primary; border: tall $primary; }
+.row { height: 1; margin-bottom: 1; }
+Button { min-width: 7; width: 1fr; margin-right: 1; background: $surface; border: none; }
+Button:hover { background: $primary-muted; }
+Button.-primary { background: $primary; }
 Input { width: 1fr; }
-#saved { color: $warning; height: 2; margin-top: 1; }
-#mode { text-style: bold; color: $warning; height: 2; }
+#saved { color: $text-muted; height: auto; min-height: 1; }
+#mode { text-style: bold; color: $sound-border; height: 1; }
 #level { height: 1; }
 ProgressBar { height: 1; margin: 1 0; }
 ProgressBar Bar { width: 1fr; }
-ProgressBar .bar--bar { color: $primary; }
-#wave { height: 3; color: $primary; background: $surface; }
+ProgressBar .bar--bar { color: $sound-border; }
+#wave { height: 3; background: $background; }
+#wave .sparkline--min-color { color: $secondary; }
+#wave .sparkline--max-color { color: $accent; }
 .muted { color: $text-muted; height: auto; }
 #capture { margin-top: 1; height: auto; }
-#connection { margin-top: 1; }
 #route { height: auto; }
-#runtime { color: $text-muted; height: auto; margin-top: 1; }
-Footer { background: $panel; }
+#runtime { color: $text-muted; height: auto; }
+Footer { background: $background; }
 ColorPicker { align: center middle; background: $background 80%; }
-#picker { width: 68; max-width: 95%; height: auto; padding: 1 2; border: round $primary; background: $surface; }
+#picker { width: 60; max-width: 95%; height: auto; padding: 1 2; border: round $light-border; background: $background; }
 #picker Static { height: auto; }
 #picker #swatch { height: 3; margin: 1 0; }
 #picker #color-error { height: 2; color: $warning; }
-
-#link { color: $text-muted; height: auto; margin-bottom: 1; }

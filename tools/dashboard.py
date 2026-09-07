@@ -3,6 +3,7 @@
 import argparse
 from collections import deque
 import math
+import re
 from pathlib import Path
 import tomllib
 
@@ -28,18 +29,17 @@ class ColorPicker(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id='picker'):
-            yield Label('MAKE IT YOUR COLOR', classes='eyebrow')
-            yield Static('A single hue, with the same slow motion and soft music response.')
+            yield Label('color', classes='eyebrow')
             yield Static(id='swatch')
-            yield Label('Hex color · #RRGGBB')
+            yield Label('Hex · #RRGGBB')
             yield Input(self.color, id='hex', max_length=7)
             with Horizontal(classes='row'):
                 for name, color in [('Amber', 'ff9646'), ('Rose', 'ff2870'), ('Ice', '00dcca'), ('Violet', '8040ff')]:
-                    yield Button(name, id='preset-' + color)
+                    yield Button(name, id='preset-' + color, compact=True)
             yield Static('', id='color-error')
             with Horizontal(classes='row'):
-                yield Button('Cancel', id='cancel')
-                yield Button('Save color', id='save-color', variant='primary')
+                yield Button('Cancel', compact=True, id='cancel')
+                yield Button('Apply', compact=True, id='save-color', variant='primary')
 
     def on_mount(self):
         self.preview(self.color)
@@ -54,7 +54,7 @@ class ColorPicker(ModalScreen[str | None]):
             return
         self.color = color
         self.query_one('#swatch', Static).styles.background = color
-        self.query_one('#color-error', Static).update(f'Preview {color.upper()} · Save selects the Custom scene')
+        self.query_one('#color-error', Static).update(f'{color.upper()} · Custom scene')
         self.query_one('#save-color', Button).disabled = False
 
     @on(Input.Changed, '#hex')
@@ -78,8 +78,8 @@ class ColorPicker(ModalScreen[str | None]):
 class Dashboard(App):
     TITLE = 'Sound Lighting'
     CSS_PATH = 'dashboard.tcss'
-    BINDINGS = [('q', 'quit', 'Close dashboard'), ('c', 'color', 'Color picker'),
-                ('a', 'auto', 'Auto'), ('s', 'idle', 'Screensaver')]
+    BINDINGS = [('q', 'quit', 'Quit'), ('c', 'color', 'Color'),
+                ('a', 'auto', 'Auto'), ('s', 'idle', 'Standby')]
 
     def __init__(self, backend=None):
         super().__init__()
@@ -95,55 +95,67 @@ class Dashboard(App):
             self.initial = Settings()
 
     def load_omarchy_theme(self):
-        path = Path.home() / '.local/state/omarchy/current/theme/colors.toml'
+        directory = Path.home() / '.local/state/omarchy/current/theme'
+        colors = dict(accent='#7aa2f7', cyan='#449dab', background='#1a1b26',
+                      foreground='#a9b1d6', lighter_background='#292e42',
+                      yellow='#e0af68', green='#9ece6a', red='#f7768e', magenta='#ad8ee6')
         try:
-            colors = tomllib.loads(path.read_text())
-            self.register_theme(Theme(name='omarchy', primary=colors['accent'],
-                secondary=colors['cyan'], accent=colors['accent'], background=colors['background'],
-                foreground=colors['foreground'], surface=colors['lighter_background'],
-                panel=colors['dark_background'], warning=colors['yellow'], success=colors['green'],
-                error=colors['red'], dark=colors.get('mode') != 'light'))
-            self.theme = 'omarchy'
-        except (OSError, ValueError, KeyError):
-            self.theme = 'textual-dark'
+            colors.update(tomllib.loads((directory / 'colors.toml').read_text()))
+        except (OSError, ValueError):
+            pass
+        try:
+            btop = dict(re.findall(r'theme\[([a-z_]+)\]="(#[0-9a-fA-F]{6})"',
+                                   (directory / 'btop.theme').read_text()))
+        except OSError:
+            btop = {}
+        self.register_theme(Theme(name='omarchy', primary=btop.get('hi_fg', colors['accent']),
+            secondary=colors['cyan'], accent=colors['magenta'],
+            background=btop.get('main_bg', colors['background']),
+            foreground=btop.get('main_fg', colors['foreground']),
+            surface=btop.get('selected_bg', colors['lighter_background']),
+            panel=colors['background'], warning=colors['yellow'], success=colors['green'],
+            error=colors['red'], dark=colors.get('mode') != 'light', variables={
+                'light-border': btop.get('cpu_box', colors['magenta']),
+                'sound-border': btop.get('mem_box', colors['green']),
+                'link-border': btop.get('net_box', colors['red']),
+            }))
+        self.theme = 'omarchy'
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id='page'):
-            yield Static('S O U N D   L I G H T I N G', id='brand')
-            yield Static(f'The garage, in good light.  /  {VERSION} · TUI', id='subtitle')
+            yield Static(f'sound lighting  ·  {VERSION}', id='brand')
             yield Static(self.backend.connection_text, id='link', markup=False)
-            yield Static('Connecting to the light engine…', id='health')
+            yield Static('Connecting…', id='health')
             with Horizontal(id='panels'):
                 with Vertical(id='controls', classes='panel'):
-                    yield Label('01 / THE LIGHT', classes='eyebrow')
+                    yield Label('light', classes='eyebrow')
                     yield Label('Scene')
                     yield Select([(s.title(), s) for s in SCENES], allow_blank=False,
                                  value=self.initial.scene, compact=True, id='scene')
-                    yield Label('Behavior')
-                    yield Select([('Auto · follow sound', 'auto'), ('Screensaver · always animate', 'idle')],
+                    yield Label('Mode')
+                    yield Select([('Auto', 'auto'), ('Standby', 'idle')],
                                  allow_blank=False, value=self.initial.behavior, compact=True, id='behavior')
-                    yield Label('Brightness · percent')
+                    yield Label('Brightness %')
                     with Horizontal(classes='row'):
-                        yield Button('−10', id='dimmer')
-                        yield Input('100', type='integer', id='brightness', max_length=3)
-                        yield Button('+10', id='brighter')
+                        yield Button('−10', compact=True, id='dimmer')
+                        yield Input('100', type='integer', id='brightness', max_length=3, compact=True)
+                        yield Button('+10', compact=True, id='brighter')
                     with Horizontal(classes='row'):
-                        yield Button('Set brightness', id='set-brightness')
-                        yield Button('Pick color…', id='pick-color')
-                    yield Static('Changes fade in and survive reboot.', id='saved', markup=False)
+                        yield Button('Apply', compact=True, id='set-brightness')
+                        yield Button('Color…', compact=True, id='pick-color')
+                    yield Static('', id='saved', markup=False)
                 with Vertical(id='monitor', classes='panel'):
-                    yield Label('02 / THE SOUND', classes='eyebrow')
+                    yield Label('sound', classes='eyebrow')
                     yield Static('—', id='mode')
                     yield Static('Waiting for telemetry', id='level')
                     yield ProgressBar(total=60, show_eta=False, show_percentage=False, id='meter')
                     yield Sparkline(list(self.history), summary_function=max, id='wave')
-                    yield Static('Last 60 seconds · relative RMS history', classes='muted')
+                    yield Static('RMS · 60s', classes='muted')
                     yield Static('', id='capture', markup=False)
             with Vertical(classes='panel', id='connection'):
-                yield Label('03 / THE CONNECTION', classes='eyebrow')
-                yield Static('Inspecting PipeWire…', id='route', markup=False)
+                yield Label('link', classes='eyebrow')
+                yield Static('Checking audio…', id='route', markup=False)
                 yield Static('', id='runtime', markup=False)
-            yield Static('Tab to move · Enter to choose · Closing this dashboard leaves the lights running.', classes='muted')
         yield Footer()
 
     def on_mount(self):
@@ -157,7 +169,7 @@ class Dashboard(App):
         self.query_one('#scene').focus()
 
     def on_resize(self, event):
-        self.query_one('#panels').set_class(event.size.width < 90, 'narrow')
+        self.query_one('#panels').set_class(event.size.width < 80, 'narrow')
 
     async def on_unmount(self):
         if hasattr(self.backend, 'close'):
@@ -182,7 +194,7 @@ class Dashboard(App):
         for widget in self.query('#controls Button, #controls Input, #controls Select'):
             widget.disabled = not self.backend.controls_available
         if self.backend.readonly:
-            self.message('Read-only · launch sudo lights tui to change settings.')
+            self.message('Read-only')
 
     def message(self, text):
         self.query_one('#saved', Static).update(text)
@@ -195,7 +207,7 @@ class Dashboard(App):
             self.message(str(error))
             return
         self.sync_controls()
-        self.message('Saved · the engine applies changes within a second.')
+        self.message('Saved')
 
     @on(Select.Changed)
     def select_changed(self, event):
@@ -220,7 +232,7 @@ class Dashboard(App):
             if not 0 <= value <= 100:
                 raise ValueError
         except ValueError:
-            self.message('Brightness must be a whole number from 0 to 100.')
+            self.message('Enter 0–100.')
             return
         self.save(brightness=round(value * 255 / 100))
 
@@ -257,7 +269,7 @@ class Dashboard(App):
         stale = d['stale']
         self.query_one('#link', Static).update(self.backend.connection_text)
         if hasattr(self.backend, 'available') and not self.backend.available:
-            self.query_one('#route', Static).update(self.backend.connection_text)
+            self.query_one('#route', Static).update(self.backend.error)
         elif hasattr(self.backend, 'graph') and self.backend.graph != self.graph:
             self.refresh_audio()
         for widget in self.query('#controls Button, #controls Input, #controls Select'):
@@ -269,34 +281,34 @@ class Dashboard(App):
             except (OSError, ValueError):
                 pass
         self.query_one('#health', Static).update(Text(
-            '● ENGINE OFFLINE / STALE · waiting for live telemetry' if stale else
-            f"● LIVE   {d.get('scene', '?').upper()}  /  {d.get('brightness_percent', '?')}% brightness",
+            '● OFFLINE · awaiting telemetry' if stale else
+            f"● LIVE   {d.get('scene', '?').upper()}  · {d.get('brightness_percent', '?')}%",
             style=(self.current_theme.warning or '#ffbf69') if stale else
                   (self.current_theme.success or '#6ee7c4')))
-        mode = ('TELEMETRY UNAVAILABLE' if stale else 'WORKSHOP · steady light' if d.get('scene') == 'workshop'
-                else 'QUIET · dimmed, standby soon' if d.get('mode') == 'quiet'
-                else 'SOUND REACTIVE' if d.get('mode') == 'sound' else 'SCREENSAVER · slow color')
+        mode = ('No signal data' if stale else 'Workshop' if d.get('scene') == 'workshop'
+                else 'Quiet → standby' if d.get('mode') == 'quiet'
+                else 'Reactive' if d.get('mode') == 'sound' else 'Standby')
         self.query_one('#mode', Static).update(mode)
         rms = 0 if stale else d.get('rms', 0)
         db = max(-60, 20 * math.log10(max(rms, 0.000001)))
         self.query_one('#meter', ProgressBar).update(progress=db + 60)
-        self.query_one('#level', Static).update('Signal unavailable' if stale else f'{db:5.1f} dBFS   /   RMS {rms:.4f}')
+        self.query_one('#level', Static).update('— dBFS' if stale else f'{db:5.1f} dBFS   /   RMS {rms:.4f}')
         self.history.append(rms)
         self.query_one('#wave', Sparkline).data = list(self.history)
         age = d.get('sound_age_seconds')
         quiet = d.get('quiet_seconds', 4)
-        timing = ('Waiting for sound' if age is None else f'Last sound {age:.0f}s ago')
+        timing = ('No sound yet' if age is None else f'Silent {age:.0f}s')
         if d.get('mode') in ('sound', 'quiet') and d.get('behavior') == 'auto' and not stale:
-            timing = f'Screensaver in {max(0, quiet - (age or 0)):.0f}s of quiet'
-        self.query_one('#capture', Static).update('Capture health unavailable' if stale else
+            timing = f'Standby in {max(0, quiet - (age or 0)):.0f}s'
+        self.query_one('#capture', Static).update('Capture —' if stale else
             f"Capture {d.get('audio', '?')} · {d.get('sample_rate', 48000) // 1000} kHz mono\n"
             f"{timing} · glow {d.get('output_gain_percent', 100)}%\n"
-            f"Retries {d.get('capture_retries', 0)} · analyzed windows {d.get('audio_blocks', 0):,}\n"
-            f"Peak {d.get('peak', 0):.3f} · clipped windows {d.get('clipped_blocks', 0)}")
+            f"Retries {d.get('capture_retries', 0)} · windows {d.get('audio_blocks', 0):,}\n"
+            f"Peak {d.get('peak', 0):.3f} · clipped {d.get('clipped_blocks', 0)}")
         frame_age = d.get('audio_age_seconds')
-        age_text = 'no frames yet' if frame_age is None else f'frame age {frame_age}s'
-        self.query_one('#runtime', Static).update('Engine status unavailable' if stale else
-            f"Engine up {d.get('uptime_seconds', 0) / 3600:.1f}h · PID {d.get('pid', '?')} · "
+        age_text = 'no frames yet' if frame_age is None else f'frame {frame_age}s'
+        self.query_one('#runtime', Static).update('Engine —' if stale else
+            f"Up {d.get('uptime_seconds', 0) / 3600:.1f}h · PID {d.get('pid', '?')} · "
             f"recorder {d.get('recorder_pid') or 'waiting'} · {age_text}")
         if d.get('settings_error'):
             self.message('Engine rejected settings: ' + d['settings_error'])
@@ -307,11 +319,11 @@ class Dashboard(App):
         self.graph = graph
         text = graph.get('error')
         if not text:
-            text = (f"Bluetooth: {', '.join(graph['peers']) or 'no connected audio peer'}\n"
-                    f"Route to lights: {', '.join(graph['routed']) or 'no active Bluetooth route'} · "
-                    f"capture sink {'available' if graph['sink'] else 'missing'}\n"
-                    f"USB: {', '.join(graph['usb']) or 'not detected'} · {graph['inputs']} input node(s)\n"
-                    'Device present ≠ audible signal. Connection poll: 5s. AUX/BT delay is unmeasured.')
+            text = (f"BT  {', '.join(graph['peers']) or 'disconnected'}\n"
+                    f"Route  {', '.join(graph['routed']) or 'idle'} · "
+                    f"sink {'ready' if graph['sink'] else 'missing'}\n"
+                    f"USB  {', '.join(graph['usb']) or 'absent'} · {graph['inputs']} inputs"
+                    )
         self.query_one('#route', Static).update(text)
 
 
