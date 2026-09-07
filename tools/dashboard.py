@@ -159,6 +159,10 @@ class Dashboard(App):
     def on_resize(self, event):
         self.query_one('#panels').set_class(event.size.width < 90, 'narrow')
 
+    async def on_unmount(self):
+        if hasattr(self.backend, 'close'):
+            await self.backend.close()
+
     def sync_controls(self, keep_draft=False):
         try:
             config = self.backend.settings()
@@ -252,6 +256,10 @@ class Dashboard(App):
         self.data = d = self.backend.status()
         stale = d['stale']
         self.query_one('#link', Static).update(self.backend.connection_text)
+        if hasattr(self.backend, 'available') and not self.backend.available:
+            self.query_one('#route', Static).update(self.backend.connection_text)
+        elif hasattr(self.backend, 'graph') and self.backend.graph != self.graph:
+            self.refresh_audio()
         for widget in self.query('#controls Button, #controls Input, #controls Select'):
             widget.disabled = not self.backend.controls_available
         if not isinstance(self.screen, ColorPicker) and not isinstance(self.focused, Input):
@@ -263,7 +271,8 @@ class Dashboard(App):
         self.query_one('#health', Static).update(Text(
             '● ENGINE OFFLINE / STALE · waiting for live telemetry' if stale else
             f"● LIVE   {d.get('scene', '?').upper()}  /  {d.get('brightness_percent', '?')}% brightness",
-            style='yellow' if stale else 'green'))
+            style=(self.current_theme.warning or '#ffbf69') if stale else
+                  (self.current_theme.success or '#6ee7c4')))
         mode = ('TELEMETRY UNAVAILABLE' if stale else 'WORKSHOP · steady light' if d.get('scene') == 'workshop'
                 else 'QUIET · dimmed, standby soon' if d.get('mode') == 'quiet'
                 else 'SOUND REACTIVE' if d.get('mode') == 'sound' else 'SCREENSAVER · slow color')

@@ -1,7 +1,9 @@
 """Dashboard behavior against temporary files; no GPIO or real audio changes."""
 from dataclasses import asdict
+import asyncio
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -125,3 +127,20 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self.backend.config.read_bytes(), before)
             self.assertEqual(app.query_one('#scene', Select).value, 'aurora')
             self.assertEqual(app.query_one('#brightness', Input).value, '27')
+
+    async def test_remote_dashboard_exit_reaps_ssh_child(self):
+        from remote_backend import RemoteBackend
+        backend = RemoteBackend()
+        snapshot = json.dumps({'type': 'snapshot', 'protocol': 1, 'settings': asdict(Settings()),
+                               'status': {'stale': False}, 'audio': {'error': 'Test fixture'}})
+        backend.command = [sys.executable, '-u', '-c',
+                           f'import time; print({snapshot!r}, flush=True); time.sleep(60)']
+        app = Dashboard(backend)
+        async with app.run_test(size=(110, 44)):
+            async with asyncio.timeout(5):
+                while not backend.available:
+                    await asyncio.sleep(.05)
+            child = backend.process.pid
+        self.assertIsNone(backend.process)
+        with self.assertRaises(ProcessLookupError):
+            os.kill(child, 0)

@@ -24,6 +24,7 @@ class RemoteBackend:
         self.connected = False
         self.config_valid = False
         self.process = None
+        self.cleanup = None
         self.pending = {}
         self.lock = asyncio.Lock()
         self.serial = self.attempts = 0
@@ -116,14 +117,25 @@ class RemoteBackend:
                 for future in self.pending.values():
                     if not future.done():
                         future.set_exception(ConnectionError('Connection lost; check saved state after reconnecting.'))
-                if self.process is not None:
-                    if self.process.returncode is None:
-                        self.process.terminate()
-                    try:
-                        await asyncio.wait_for(self.process.wait(), timeout=2)
-                    except TimeoutError:
-                        self.process.kill()
-                        await self.process.wait()
-                    self.process = None
+                await self.close()
             self.retry_at = time.monotonic() + 5
             await asyncio.sleep(5)
+
+    async def close(self):
+        """Share one cleanup task so app shutdown can wait for worker cancellation."""
+        async def reap(process):
+            if process.returncode is None:
+                try:
+                    process.terminate()
+                except ProcessLookupError:
+                    pass
+            try:
+                await asyncio.wait_for(process.wait(), timeout=2)
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+        if self.process is not None:
+            process, self.process = self.process, None
+            self.cleanup = asyncio.create_task(reap(process))
+        if self.cleanup is not None:
+            await asyncio.shield(self.cleanup)

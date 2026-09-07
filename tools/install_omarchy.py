@@ -26,8 +26,12 @@ def main():
     launcher = home / '.local/bin/sound-lighting'
     desktop = home / '.local/share/applications/org.omarchy.SoundLighting.desktop'
     icon = home / '.local/share/icons/hicolor/scalable/apps/sound-lighting.svg'
+    window_rules = home / '.config/hypr/sound_lighting.lua'
+    hypr_config = home / '.config/hypr/hyprland.lua'
+    previous_config = hypr_config.read_text()
+    previous_rules = window_rules.read_text() if window_rules.exists() else None
     backup = home / '.local/state/sound-lighting/install-backup' / datetime.now().strftime('%Y%m%d-%H%M%S')
-    for path in (launcher, desktop, icon):
+    for path in (launcher, desktop, icon, window_rules, hypr_config):
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists():
             backup.mkdir(parents=True, exist_ok=True)
@@ -41,11 +45,29 @@ def main():
         escaped = escaped.replace(char, '\\' + char)
     desktop.write_text('[Desktop Entry]\nType=Application\nVersion=1.0\nName=Sound Lighting\n'
         'Comment=Garage lights, sound, and Raspberry Pi connection\n'
-        f'Exec=omarchy launch tui --app-id=org.omarchy.SoundLighting "{escaped}"\n'
+        f'Exec=uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.SoundLighting --title="Sound Lighting" -e "{escaped}"\n'
         'Icon=sound-lighting\nTerminal=false\nStartupNotify=true\n'
         'StartupWMClass=org.omarchy.SoundLighting\nCategories=AudioVideo;\n'
         'Keywords=Garage;LED;Raspberry;Pi;Sound;Lighting;\n')
     shutil.copy2(repo / 'install/sound-lighting.svg', icon)
+    window_rules.write_text('-- Sound Lighting: a comfortable app window, using the default terminal.\n'
+        'o.window("^org[.]omarchy[.]SoundLighting$", { float = true, center = true, size = { 1100, 880 } })\n')
+    include = 'require("hypr.sound_lighting")'
+    if include not in previous_config:
+        hypr_config.write_text(previous_config.rstrip() + '\n\n-- Sound Lighting app window.\n' + include + '\n')
+    try:
+        subprocess.run(['hyprctl', 'reload'], check=True, stdout=subprocess.DEVNULL)
+        errors = subprocess.check_output(['hyprctl', 'configerrors'], text=True).strip()
+        if errors:
+            raise RuntimeError('Hyprland configuration rejected: ' + errors)
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        hypr_config.write_text(previous_config)
+        if previous_rules is None:
+            window_rules.unlink(missing_ok=True)
+        else:
+            window_rules.write_text(previous_rules)
+        subprocess.run(['hyprctl', 'reload'], check=False)
+        raise
     for command in (['desktop-file-validate', str(desktop)],
                     ['update-desktop-database', str(desktop.parent)]):
         if shutil.which(command[0]):
