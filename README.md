@@ -17,7 +17,7 @@ Laptop audio ────────────┤
 ## Light it up
 
 **On the `TUI` branch:** an Omarchy app for the whole room.
-Press **SUPER+SPACE**, search **Sound Lighting**, and open it. Scenes, brightness,
+Press **SUPER+SPACE**, search **Sound Lighting**, and open it. Eight scenes, brightness and warm/cool sliders,
 a separate color-picker window, and live sound/connection health follow your Pi.
 If it is powered off, the app stays open and retries automatically.
 
@@ -54,6 +54,9 @@ sudo lights brightness 80
 **Rainbow** is saturated and flowing. **Aurora** is cyan, blue, and violet in broad
 moving curtains. **Workshop** is steady warm-white utility light. Changes fade in
 without restarting, and your choices survive reboot.
+**Sunset**, **Ocean**, **Ember**, and **Candy** add slow, saturated colorways on
+this branch. The White slider tunes Workshop from warm to cool; its midpoint
+preserves the original tint. Try `sudo lights white 25`.
 **Custom**, on this branch, carries your chosen hue through slow motion and soft
 sound response. Choose it in the picker, or run `sudo lights color '#ff2870'`.
 

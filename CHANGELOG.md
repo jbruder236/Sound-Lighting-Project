@@ -2,6 +2,13 @@
 
 ## 1.1.0-dev · TUI branch
 
+**Color & feel:** Sunset, Ocean, Ember, and Candy palettes; eight picker presets;
+mouse/keyboard brightness and warm/cool sliders. White stays steady, its midpoint
+preserves Workshop, and rapid slider edits are coalesced. CLI: `lights white 0..100`.
+
+**Audio timing:** 48 kHz / 16-bit mono, 21.33 ms analysis window, and a clearly
+labeled 20 ms capture request. End-to-end latency remains explicitly unmeasured.
+
 **Dashboard refinement:** Shorter labels, compact controls, btop panel colors and
 graph gradient. All controls and statistics remain. Hyprland tiles the app normally
 instead of forcing a floating window; narrow tiles stack the panels.
@@ -17,7 +24,7 @@ four seconds. Workshop and forced Screensaver retain their ambient behavior.
 **Fixed:** Status refresh preserves brightness drafts; dashboard exit waits for its
 SSH child to be reaped. Launcher installation backs up and validates its window rule.
 
-**Checks:** 28 tests across core and optional UI environments; actual SSH drop and
+**Checks:** 31 tests across core and optional UI environments; actual SSH drop and
 reconnection with controls restored; real mute → dim (~2s) → standby (~5s), then
 unmute → sound reaction, all with one unchanged lighting PID.
 

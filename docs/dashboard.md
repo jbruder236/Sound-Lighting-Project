@@ -37,18 +37,21 @@ resizes, and moves between workspaces normally; it no longer forces a floating s
 
 | Control | What happens |
 | --- | --- |
-| Scene | Rainbow, Aurora, steady Workshop, or your Custom hue. |
+| Scene | Rainbow, Aurora, Sunset, Ocean, Ember, Candy, steady White, or Custom. |
 | Behavior / A / S | Auto follows sound; Screensaver keeps the idle animation. Workshop stays steady. |
-| Brightness | Enter 0–100 and press Enter or Apply; −10/+10 makes quick adjustments. Zero stays dark, including after reboot. |
-| Color / C | A separate dialog with a hex field, live swatch, and four presets. Apply selects Custom. Cancel or Escape changes nothing. |
+| Brightness | Drag the slider and release; arrows change 1%, PgUp/PgDn 10%, Home/End reach the limits. Exact entry + Enter or Apply % also works. Zero stays dark, including after reboot. |
+| White · warm ↔ cool | Drag or use arrow keys to select steady White and adjust its tint. 0 is warm, 100 cool; 50 preserves the original Workshop white. |
+| Color / C | A separate dialog with a hex field, live swatch, and eight presets. Apply selects Custom. Cancel or Escape changes nothing. |
 | Q | Close only the dashboard. |
 
 The custom scene uses the existing slow waves and gentle sound response. It holds
-the hue you picked; brightness still varies across the span. Workshop is the
-constant utility-light option. The terminal swatch is an approximation of the LEDs.
+the hue you picked; brightness still varies across the span. White (the `workshop` scene in the CLI) is the constant utility-light option.
+Its slider blends RGB tints, not calibrated Kelvin temperatures. The terminal
+swatch is an approximation of the LEDs. `sudo lights white 25` also selects White.
 Saved settings apply within a second and fade smoothly. The top strip shows what
 the engine has actually applied. Remote changes refresh the controls while keeping
-an unfinished brightness edit intact. CLI changes appear in live status too.
+an unfinished brightness edit intact. Slider drags save on release; rapid keyboard
+adjustments are coalesced, with one slider write in flight. CLI changes appear in live status too.
 
 ![Separate color-picker dialog](images/color-picker.png)
 
@@ -60,10 +63,18 @@ an unfinished brightness edit intact. CLI changes appear in live status too.
   Workshop and forced Screensaver bypass this dim.
 - **Signal:** RMS level in dBFS, a −60 to 0 dBFS meter, and 60 seconds of relative
   history sampled once per second. Fast transients between status updates may be missed.
-- **Capture:** frames arriving, configured 48 kHz mono, retry count, analyzed
+- **Capture:** frames arriving, configured 48 kHz, 16-bit mono, retry count, analyzed
   windows, largest observed sample peak, and windows containing near-clipping samples.
   These counters start over with the engine. Windows are sampled for analysis;
   they are not a packet count or a guarantee of detecting every clipped sample.
+- **Timing:** a 1,024-sample analysis window is **21.33 ms** at 48 kHz.
+  The **20 ms request** is the recorder’s PipeWire buffer latency setting, not a
+  measured transport delay ([PipeWire reference](https://docs.pipewire.org/1.4/page_man_pw-cat_1.html)).
+  End-to-end latency explicitly reads **unmeasured**. Bluetooth buffering, a
+  30 Hz render loop, and intentional smoothing add delay; these components cannot
+  simply be summed into an accurate total. Measuring the AUX/light offset requires
+  a synchronized loopback or external light/audio recording. Frame age is freshness,
+  not latency.
 - **Connection:** connected Bluetooth audio peers and the active PipeWire route
   into the lighting sink, checked every five seconds. USB presence is reported
   separately; the dashboard does not route USB audio.
@@ -118,7 +129,7 @@ the `lights tui` launcher. The LED service keeps its existing system Python,
 NumPy, and WS2811 library. `python3-venv` is required to create the environment.
 
 The local UI consists of `tools/dashboard.py`, `tools/dashboard.tcss`, and
-`tools/dashboard_data.py`. It imports shared settings validation and reads the
+`tools/dashboard_data.py`, plus the small `tools/slider.py` widget. It imports shared settings validation and reads the
 engine's status JSON. PipeWire inspection runs as `pi`, even when the dashboard
 runs under sudo, and its short-lived subprocess is reaped on timeout or exit.
 
@@ -139,8 +150,8 @@ reconnection, acknowledged writes, no offline replay, and child-process cleanup.
 
 ## Return to 1.0
 
-The new `color` setting and Custom scene are specific to this branch. Back up your
-settings and remove that field before returning to `master`:
+The `color` and `white` settings and extra scenes are specific to this branch.
+Back up your settings and remove these fields before returning to `master`:
 
 ```sh
 cd /home/pi/Sound-Lighting-Project
@@ -152,7 +163,8 @@ from settings import atomic_json
 path = Path('/etc/sound-lighting.json')
 settings = json.loads(path.read_text())
 settings.pop('color', None)
-if settings.get('scene') == 'custom':
+settings.pop('white', None)
+if settings.get('scene') not in ('rainbow', 'aurora', 'workshop'):
     settings['scene'] = 'rainbow'
 atomic_json(path, settings)
 PY
