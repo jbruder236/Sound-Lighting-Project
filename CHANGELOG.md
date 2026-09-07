@@ -1,5 +1,18 @@
 # Version notes
 
+## Experimental · feature/spectral-color
+
+**Feature:** Spectrum scene; six musical frequency bands drive saturated color.
+FFT runs on Omarchy, independently of the dashboard, with a small SSH feature feed.
+
+**Resilience:** One packet in flight, expiring receiver challenges, 0.75-second
+feature expiry, automatic capture/link retry, and rainbow fallback. Pi loudness
+continues to control quiet dimming and standby. Existing scenes remain available.
+
+**Timing:** 0.08 ms median laptop FFT benchmark; 42.67 ms windows, up to 20 Hz updates.
+The TUI separates FFT cost, SSH RTT, and feature freshness. Sound/light alignment
+remains uncalibrated. [Assessment, installation, and rollback →](docs/spectrum.md)
+
 ## 1.1.0-dev · TUI branch
 
 **Color & feel:** Sunset, Ocean, Ember, and Candy palettes; eight picker presets;

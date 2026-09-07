@@ -14,6 +14,10 @@ Laptop audio ────────────┤
                          └── Bluetooth ────► Pi ────► Addressable lights
 ```
 
+**Experimental:** [Frequency-driven color](docs/spectrum.md) on `feature/spectral-color`.
+A laptop FFT gives bass, mids, and highs their own colors; the Pi keeps its quiet
+and standby behavior. Choose **Spectrum + Auto** in the dashboard.
+
 ## Light it up
 
 **On the `TUI` branch:** an Omarchy app for the whole room.
