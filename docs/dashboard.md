@@ -4,12 +4,12 @@ The `TUI` branch adds a terminal remote to the existing light service. One proce
 still owns GPIO. Opening a dashboard starts no recorder, changing a control needs
 no restart, and closing it leaves the lights on.
 
-![Live dashboard on the Pi](images/dashboard.png)
+![Dashboard preview](images/dashboard.png)
 
 ## Open it
 
 On this Omarchy laptop, **SUPER+SPACE → Sound Lighting**. It opens in your default
-terminal with an app icon and the active Omarchy color palette. Reopen after
+terminal with an app icon and the active Omarchy btop palette, including its colored panel borders and graph gradient. Reopen after
 changing themes to pick up the new palette. You can also run:
 
 ```sh
@@ -31,15 +31,16 @@ agent; the light service and laptop audio helper keep running.
 
 On the Pi: `sudo lights tui` still works after `bash install/install-tui.sh`.
 For observation only on the laptop: `sound-lighting --read-only`.
-Use a terminal around **110 columns × 44 rows** for the full view. Narrower windows
-stack the panels; scroll or Tab to reach the remaining controls.
+Use a terminal around **100 columns × 32 rows** for the full view. Narrower windows
+stack the panels; scroll or Tab to reach the remaining controls. The app tiles,
+resizes, and moves between workspaces normally; it no longer forces a floating size.
 
 | Control | What happens |
 | --- | --- |
 | Scene | Rainbow, Aurora, steady Workshop, or your Custom hue. |
 | Behavior / A / S | Auto follows sound; Screensaver keeps the idle animation. Workshop stays steady. |
-| Brightness | Enter 0–100 and press Enter or Set; −10/+10 makes quick adjustments. Zero stays dark, including after reboot. |
-| Pick color / C | A separate dialog with a hex field, live swatch, and four presets. Save selects Custom. Cancel or Escape changes nothing. |
+| Brightness | Enter 0–100 and press Enter or Apply; −10/+10 makes quick adjustments. Zero stays dark, including after reboot. |
+| Color / C | A separate dialog with a hex field, live swatch, and four presets. Apply selects Custom. Cancel or Escape changes nothing. |
 | Q | Close only the dashboard. |
 
 The custom scene uses the existing slow waves and gentle sound response. It holds
@@ -92,7 +93,7 @@ under `~/.local/share/icons/hicolor/scalable/apps/`. Dependencies live in
 `~/.local/share/sound-lighting/tui-venv`. The launcher references this checkout;
 rerun the installer if you move it. Replaced launcher/icon files are backed up
 under `~/.local/state/sound-lighting/install-backup/`. An app-specific rule in
-`~/.config/hypr/sound_lighting.lua` opens a centered 1100 × 880 window; the installer
+`~/.config/hypr/sound_lighting.lua` uses normal Hyprland tiling; the installer
 adds its include to `hyprland.lua`, reloads and validates it, and restores the old
 configuration if validation fails. Your terminal configuration remains unchanged.
 

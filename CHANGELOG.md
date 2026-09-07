@@ -2,6 +2,10 @@
 
 ## 1.1.0-dev · TUI branch
 
+**Dashboard refinement:** Shorter labels, compact controls, btop panel colors and
+graph gradient. All controls and statistics remain. Hyprland tiles the app normally
+instead of forcing a floating window; narrow tiles stack the panels.
+
 **Omarchy app:** SUPER+SPACE → Sound Lighting; app icon, native terminal window,
 active theme colors, local dashboard, bounded SSH reconnects, offline countdown,
 and acknowledged controls. Disconnected changes are not queued.
