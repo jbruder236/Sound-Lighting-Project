@@ -17,6 +17,9 @@ from settings import VERSION, SCENES, Settings, SettingsWatcher, atomic_json, re
 
 TARGET = 'lighting_audio'
 RATE, CHUNK = 48000, 1024
+CAPTURE_LATENCY_MS = 20
+PALETTES = {'sunset': (0.98, 0.10), 'ocean': (0.51, 0.10),
+            'ember': (0.04, 0.04), 'candy': (0.86, 0.10)}
 
 
 class LightState:
@@ -52,10 +55,18 @@ class LightState:
         self.mix += (target - self.mix) * (1 - math.exp(-dt / 1.2))
 
 
-def frame(count, elapsed, state, scene='rainbow', color='#ff9646'):
+def white_rgb(tint):
+    """RGB tint, not calibrated Kelvin; midpoint preserves the original Workshop."""
+    warm, neutral, cool = (255, 120, 40), (255, 205, 145), (190, 220, 255)
+    a, b = (warm, neutral) if tint <= 50 else (neutral, cool)
+    mix = tint / 50 if tint <= 50 else (tint - 50) / 50
+    return tuple(round(x + (y - x) * mix) for x, y in zip(a, b))
+
+
+def frame(count, elapsed, state, scene='rainbow', color='#ff9646', white=50):
     """Keep the approved saturated palette; crossfade only motion and glow."""
     if scene == 'workshop':
-        return [(255, 205, 145)] * count
+        return [white_rgb(white)] * count
     pixels = []
     for i in range(count):
         position = i / max(1, count - 1)
@@ -64,6 +75,9 @@ def frame(count, elapsed, state, scene='rainbow', color='#ff9646'):
         if scene == 'aurora':
             hue = (0.61 + 0.17 * math.sin(position * math.tau - elapsed / 22)
                    + 0.04 * math.sin(position * math.tau * 2 + elapsed / 17)) % 1
+        elif scene in PALETTES:
+            center, spread = PALETTES[scene]
+            hue = (center + spread * math.sin(position * math.tau - elapsed / 22)) % 1
         ribbon = 0.5 + 0.5 * math.cos(position * math.tau * 2 - elapsed / 4)
         sound_value = (0.72 + 0.28 * state.envelope) * (0.78 + 0.22 * ribbon)
         idle_wave = 0.5 + 0.5 * math.sin(position * math.tau - elapsed / 7)
@@ -81,7 +95,8 @@ class AudioReader:
     """Recover from missing devices/server restarts without blocking animation."""
     def __init__(self, target, user):
         self.command = ['pw-record', '--target', target,
-                        '--properties=stream.capture.sink=true node.dont-fallback=true', '--latency=20ms',
+                        '--properties=stream.capture.sink=true node.dont-fallback=true',
+                        f'--latency={CAPTURE_LATENCY_MS}ms',
                         '--rate', str(RATE), '--channels', '1', '--format', 's16', '--raw', '-']
         self.options = {}
         if os.geteuid() == 0:
@@ -181,6 +196,10 @@ class AudioReader:
             'audio_age_seconds': None if age is None else round(age, 2),
             'recorder_pid': self.process.pid if self.process is not None else None,
             'sample_rate': RATE,
+            'sample_bits': 16, 'channels': 1,
+            'analysis_window_ms': round(CHUNK / RATE * 1000, 2),
+            'capture_requested_ms': CAPTURE_LATENCY_MS,
+            'end_to_end_latency_ms': None,
         }
 
 
@@ -261,7 +280,8 @@ def main():
             if state.mode != previous_mode:
                 print(f'Mode: {state.mode} (RMS={rms:.4f}).', flush=True)
             if strip is not None:
-                desired = np.array(frame(args.count, now - start, state, config.scene, config.color), dtype=float)
+                desired = np.array(frame(args.count, now - start, state, config.scene,
+                                         config.color, config.white), dtype=float)
                 if previous_pixels is None:
                     previous_pixels = desired
                 else:
@@ -281,6 +301,7 @@ def main():
                         'uptime_seconds': round(now - start, 1), 'scene': config.scene,
                         'brightness_percent': round(config.brightness / 255 * 100),
                         'mode': state.mode, 'behavior': config.behavior, 'color': config.color,
+                        'white': config.white,
                         'output_gain_percent': round(state.gain * 100),
                         'rms': round(rms, 5),
                         'sound_age_seconds': None if state.last_sound is None else round(now - state.last_sound, 1),

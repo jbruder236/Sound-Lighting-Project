@@ -24,6 +24,8 @@ def main():
     scene.add_argument('value', choices=SCENES)
     color = commands.add_parser('color', help='Set a hex color and crossfade to the custom scene')
     color.add_argument('value')
+    white = commands.add_parser('white', help='Steady white tint: 0 warm, 50 original Workshop, 100 cool')
+    white.add_argument('value', type=int)
     brightness = commands.add_parser('brightness', help='Set brightness percentage (0..100)')
     brightness.add_argument('value', type=int)
     behavior = commands.add_parser('mode', help='Automatic sound reaction, or idle animation only')
@@ -57,6 +59,8 @@ def main():
             values['brightness'] = round(args.value * 255 / 100)
         elif args.command == 'color':
             values.update(color=args.value, scene='custom')
+        elif args.command == 'white':
+            values.update(white=args.value, scene='workshop')
         else:
             key = {'scene': 'scene', 'mode': 'behavior', 'quiet': 'quiet_seconds', 'threshold': 'threshold'}[args.command]
             values[key] = args.value

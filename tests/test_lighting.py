@@ -86,6 +86,28 @@ class ModeTests(unittest.TestCase):
 
 
 class SceneTests(unittest.TestCase):
+    def test_white_tint_is_bounded_steady_and_preserves_original(self):
+        state = lighting.LightState(0)
+        self.assertEqual(lighting.white_rgb(50), (255, 205, 145))
+        for tint in range(101):
+            rgb = lighting.white_rgb(tint)
+            self.assertTrue(all(0 <= c <= 255 for c in rgb))
+            self.assertEqual(lighting.frame(2, 20, state, 'workshop', white=tint), [rgb] * 2)
+        warm, cool = lighting.white_rgb(0), lighting.white_rgb(100)
+        self.assertGreater(warm[0], warm[2])
+        self.assertGreater(cool[2], cool[0])
+
+    def test_colorways_move_stay_saturated_and_have_distinct_palettes(self):
+        state = lighting.LightState(0)
+        frames = []
+        for scene in ('sunset', 'ocean', 'ember', 'candy'):
+            a = lighting.frame(100, 0, state, scene)
+            b = lighting.frame(100, 15, state, scene)
+            self.assertNotEqual(a, b)
+            self.assertTrue(all(min(rgb) == 0 and 100 < max(rgb) <= 255 for rgb in a + b))
+            frames.append(a)
+        self.assertEqual(len({tuple(frame) for frame in frames}), 4)
+
     def test_custom_color_keeps_hue_and_moves(self):
         state = lighting.LightState(0)
         a = lighting.frame(100, 0, state, 'custom', '#ff0080')

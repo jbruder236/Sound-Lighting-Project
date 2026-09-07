@@ -9,7 +9,7 @@ import tempfile
 VERSION = '1.1.0-dev'
 CONFIG_PATH = '/etc/sound-lighting.json'
 STATUS_PATH = '/run/sound-lighting/status.json'
-SCENES = ('rainbow', 'aurora', 'workshop', 'custom')
+SCENES = ('rainbow', 'aurora', 'sunset', 'ocean', 'ember', 'candy', 'workshop', 'custom')
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,7 @@ class Settings:
     quiet_seconds: float = 4
     threshold: float = 0.003
     color: str = '#ff9646'
+    white: int = 50
 
     @classmethod
     def parse(cls, values):
@@ -40,6 +41,8 @@ class Settings:
             raise ValueError('behavior must be auto or idle')
         if type(merged['brightness']) is not int or not 0 <= merged['brightness'] <= 255:
             raise ValueError('brightness must be an integer from 0 to 255')
+        if type(merged['white']) is not int or not 0 <= merged['white'] <= 100:
+            raise ValueError('white must be an integer from 0 (warm) to 100 (cool)')
         for key, low, high in [('quiet_seconds', 0.1, 3600), ('threshold', 0.000001, 1)]:
             value = merged[key]
             if type(value) not in (int, float) or not math.isfinite(value) or not low <= value <= high:

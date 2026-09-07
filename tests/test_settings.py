@@ -13,12 +13,14 @@ class SettingsTests(unittest.TestCase):
     def test_rejects_unsafe_and_mistyped_values(self):
         for values in ({'brightness': -1}, {'brightness': 256}, {'brightness': True},
                        {'quiet_seconds': float('nan')}, {'threshold': 0},
+                       {'white': -1}, {'white': 101}, {'white': True}, {'white': 50.5},
                        {'scene': 'strobe'}, {'behavior': 'unknown'}, {'pin': 18}):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Settings.parse(values)
 
     def test_custom_color_validation_and_old_config_defaults(self):
         self.assertEqual(Settings.parse({}).color, '#ff9646')
+        self.assertEqual(Settings.parse({}).white, 50)
         self.assertEqual(Settings.parse({'color': '#ABCDEF'}).color, '#abcdef')
         for value in ('red', '#fff', '#gg0000', '#00000000', 123, None):
             with self.subTest(color=value), self.assertRaises(ValueError):
