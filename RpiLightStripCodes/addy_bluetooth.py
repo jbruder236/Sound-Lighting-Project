@@ -10,7 +10,10 @@ import signal
 import subprocess
 import time
 
+from pathlib import Path
+
 import numpy as np
+from settings import VERSION, Settings, SettingsWatcher, atomic_json, read_settings
 
 TARGET = 'lighting_audio'
 RATE, CHUNK = 48000, 1024
@@ -26,7 +29,7 @@ class LightState:
         self.envelope = self.mix = 0.0
         self.mode = 'idle'
 
-    def update(self, now, rms):
+    def update(self, now, rms, reactive=True):
         dt = max(0.0, min(0.25, now - self.last_update))
         self.last_update = now
         if rms >= self.threshold:
@@ -37,17 +40,24 @@ class LightState:
         level = min(1.0, rms / self.reference) if rms >= self.threshold else 0.0
         tau = 0.45 if level > self.envelope else 1.6
         self.envelope += (level - self.envelope) * (1 - math.exp(-dt / tau))
+        if not reactive:
+            self.mode = 'idle'
         target = float(self.mode == 'sound')
         self.mix += (target - self.mix) * (1 - math.exp(-dt / 1.2))
 
 
-def frame(count, elapsed, state):
+def frame(count, elapsed, state, scene='rainbow'):
     """Keep the approved saturated palette; crossfade only motion and glow."""
+    if scene == 'workshop':
+        return [(255, 205, 145)] * count
     pixels = []
     for i in range(count):
         position = i / max(1, count - 1)
         hue = (position * 0.95 - elapsed / 70 +
                0.035 * math.sin(position * math.tau * 2 - elapsed / 9)) % 1
+        if scene == 'aurora':
+            hue = (0.61 + 0.17 * math.sin(position * math.tau - elapsed / 22)
+                   + 0.04 * math.sin(position * math.tau * 2 + elapsed / 17)) % 1
         ribbon = 0.5 + 0.5 * math.cos(position * math.tau * 2 - elapsed / 4)
         sound_value = (0.72 + 0.28 * state.envelope) * (0.78 + 0.22 * ribbon)
         idle_wave = 0.5 + 0.5 * math.sin(position * math.tau - elapsed / 7)
@@ -151,6 +161,10 @@ class AudioReader:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--version', action='version', version=VERSION)
+    ap.add_argument('--config', help='Validated settings JSON; reloaded once per second')
+    ap.add_argument('--status-file', help='Write live health JSON here once per second')
+    ap.add_argument('--scene', choices=['rainbow', 'aurora', 'workshop'], default='rainbow')
     ap.add_argument('--seconds', type=float, default=10, help='0 means continuous')
     ap.add_argument('--count', type=int, default=100)
     ap.add_argument('--brightness', type=int, default=255)
@@ -170,6 +184,13 @@ def main():
         ap.error('Count must be 1..2000 and brightness 0..255')
     if not args.audio_only and os.geteuid() != 0:
         ap.error('Use sudo for GPIO21 PCM output')
+    try:
+        initial = read_settings(args.config) if args.config else Settings.parse({
+            'scene': args.scene, 'brightness': args.brightness,
+            'quiet_seconds': args.quiet_seconds, 'threshold': args.threshold})
+    except (OSError, ValueError) as error:
+        ap.error(str(error))
+    watcher = SettingsWatcher(args.config, initial)
     stopping = False
 
     def stop(*_):
@@ -186,26 +207,63 @@ def main():
         if not args.audio_only:
             from rpi_ws281x import PixelStrip, Color, ws
             strip = PixelStrip(args.count, 21, 800000, 10, False,
-                              args.brightness, 0, ws.WS2811_STRIP_GBR)
+                              initial.brightness, 0, ws.WS2811_STRIP_GBR)
             strip.begin()
             initialized = True
         start = time.monotonic()
-        state = LightState(start, args.quiet_seconds, args.threshold)
-        print(f'Mode: idle. Sound returns automatically; quiet timeout {args.quiet_seconds:g}s.', flush=True)
+        state = LightState(start, initial.quiet_seconds, initial.threshold)
+        config = initial
+        next_settings = next_status = start
+        last_render = start
+        brightness = float(initial.brightness)
+        previous_pixels = None
+        last_status_error = None
+        print(f'Mode: idle. Sound returns automatically; quiet timeout {initial.quiet_seconds:g}s.', flush=True)
         while not stopping:
             now = time.monotonic()
             if args.seconds and now - start >= args.seconds:
                 break
+            dt = min(0.25, max(0.001, now - last_render))
+            last_render = now
+            if now >= next_settings:
+                config = watcher.reload()
+                state.quiet_seconds, state.threshold = config.quiet_seconds, config.threshold
+                next_settings = now + 1
             rms = reader.poll(now)
             max_rms = max(max_rms, rms)
             previous_mode = state.mode
-            state.update(now, rms)
+            state.update(now, rms, reactive=config.behavior == 'auto' and config.scene != 'workshop')
             if state.mode != previous_mode:
                 print(f'Mode: {state.mode} (RMS={rms:.4f}).', flush=True)
             if strip is not None:
-                for i, rgb in enumerate(frame(args.count, now - start, state)):
-                    strip.setPixelColor(i, Color(*rgb))
+                desired = np.array(frame(args.count, now - start, state, config.scene), dtype=float)
+                if previous_pixels is None:
+                    previous_pixels = desired
+                else:
+                    previous_pixels += (desired - previous_pixels) * (1 - math.exp(-dt / 0.65))
+                brightness += (config.brightness - brightness) * (1 - math.exp(-dt / 0.65))
+                strip.setBrightness(round(brightness))
+                for i, rgb in enumerate(previous_pixels):
+                    strip.setPixelColor(i, Color(*(round(c) for c in rgb)))
                 strip.show()
+            if args.status_file and now >= next_status:
+                audio = ('receiving' if reader.blocks and reader.process is not None and now - reader.last_frame < 0.3 else 'waiting')
+                try:
+                    atomic_json(args.status_file, {
+                        'version': VERSION, 'state': 'running', 'updated_at': time.time(),
+                        'uptime_seconds': round(now - start, 1), 'scene': config.scene,
+                        'brightness_percent': round(config.brightness / 255 * 100),
+                        'mode': state.mode, 'behavior': config.behavior, 'audio': audio,
+                        'rms': round(rms, 5), 'audio_blocks': reader.blocks,
+                        'quiet_seconds': config.quiet_seconds,
+                        'settings_error': watcher.error,
+                    })
+                    last_status_error = None
+                except OSError as error:
+                    if str(error) != last_status_error:
+                        print(f'Status write failed: {error}', flush=True)
+                        last_status_error = str(error)
+                next_status = now + 1
             time.sleep(max(0, 1 / 30 - (time.monotonic() - now)))
         print(f'Audio blocks={reader.blocks}, max RMS={max_rms:.3f}, peak={reader.peak:.3f}', flush=True)
     finally:
@@ -222,6 +280,11 @@ def main():
                     strip._cleanup()
         finally:
             reader.close()
+            if args.status_file:
+                try:
+                    Path(args.status_file).unlink(missing_ok=True)
+                except OSError:
+                    pass
             print('Audio and LED resources released.', flush=True)
 
 

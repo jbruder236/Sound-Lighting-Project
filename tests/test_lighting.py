@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "RpiLightStripCodes"))
 
 spec = importlib.util.spec_from_file_location('lighting', Path(__file__).resolve().parents[1] / 'RpiLightStripCodes/addy_bluetooth.py')
 lighting = importlib.util.module_from_spec(spec)
@@ -66,6 +68,28 @@ class ModeTests(unittest.TestCase):
         b = lighting.frame(100, 5, state)
         for x, y in zip(a, b):
             self.assertEqual(x.index(min(x)), y.index(min(y)))
+
+
+class SceneTests(unittest.TestCase):
+    def test_workshop_is_steady_regardless_of_audio(self):
+        state = lighting.LightState(0)
+        first = lighting.frame(100, 0, state, 'workshop')
+        state.envelope = state.mix = 1
+        self.assertEqual(first, lighting.frame(100, 100, state, 'workshop'))
+        self.assertTrue(all(r > g > b for r, g, b in first))
+
+    def test_aurora_is_colored_and_moves(self):
+        state = lighting.LightState(0)
+        a = lighting.frame(100, 0, state, 'aurora')
+        b = lighting.frame(100, 15, state, 'aurora')
+        self.assertNotEqual(a, b)
+        self.assertTrue(all(min(rgb) == 0 and max(rgb) > 100 for rgb in a + b))
+
+    def test_idle_override_does_not_react_to_loud_audio(self):
+        state = lighting.LightState(0)
+        state.update(1, 1.0, reactive=False)
+        self.assertEqual(state.mode, 'idle')
+        self.assertEqual(state.mix, 0)
 
 
 if __name__ == '__main__':
