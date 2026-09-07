@@ -1,0 +1,2 @@
+# Optional dashboard; the LED service keeps using system Python.
+textual==8.2.8
