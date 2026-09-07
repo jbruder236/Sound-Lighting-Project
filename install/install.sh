@@ -14,15 +14,29 @@ fi
 /usr/bin/python3 -c 'import numpy, rpi_ws281x'
 command -v pw-record >/dev/null
 command -v wireplumber >/dev/null
+/usr/bin/python3 -m unittest discover -s "$repo_root/tests" -v
+if [[ -f /etc/sound-lighting.json ]]; then
+  PYTHONPATH="$repo_root/RpiLightStripCodes" /usr/bin/python3 -c 'from settings import read_settings; read_settings("/etc/sound-lighting.json")'
+fi
+systemd-analyze verify "$repo_root/install/addy-bluetooth.service"
+if [[ -e /usr/local/bin/lights ]] && ! grep -q 'Sound Lighting' /usr/local/bin/lights; then
+  echo '/usr/local/bin/lights already belongs to another program; refusing to overwrite it.' >&2
+  exit 1
+fi
 backup_dir="/var/backups/sound-lighting/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$backup_dir"
-for config_path in /etc/systemd/system/addy-bluetooth.service \
+for config_path in /usr/local/bin/lights /etc/sound-lighting.json /etc/systemd/system/addy-bluetooth.service \
   /home/pi/.config/pipewire/pipewire.conf.d/30-lighting-audio.conf \
   /home/pi/.config/wireplumber/wireplumber.conf.d/51-lighting-bluetooth.conf; do
   if [[ -f "$config_path" ]]; then cp --parents -a "$config_path" "$backup_dir/"; fi
 done
 loginctl show-user pi -p Linger > "$backup_dir/previous-linger.txt"
-systemctl stop addy-bluetooth.service 2>/dev/null || true
+if systemctl cat addy-bluetooth.service >/dev/null 2>&1; then
+  systemctl stop addy-bluetooth.service
+fi
+if [[ ! -f /etc/sound-lighting.json ]]; then
+  install -m 644 "$repo_root/install/sound-lighting.json" /etc/sound-lighting.json
+fi
 install -d -o pi -g pi /home/pi/.config/pipewire/pipewire.conf.d \
   /home/pi/.config/wireplumber/wireplumber.conf.d
 install -o pi -g pi -m 644 "$repo_root/install/30-lighting-audio.conf" \
@@ -30,6 +44,7 @@ install -o pi -g pi -m 644 "$repo_root/install/30-lighting-audio.conf" \
 install -o pi -g pi -m 644 "$repo_root/install/51-lighting-bluetooth.conf" \
   /home/pi/.config/wireplumber/wireplumber.conf.d/51-lighting-bluetooth.conf
 install -m 644 "$repo_root/install/addy-bluetooth.service" /etc/systemd/system/addy-bluetooth.service
+install -m 755 "$repo_root/install/lights" /usr/local/bin/lights
 loginctl enable-linger pi
 systemctl enable --now bluetooth.service
 rfkill unblock bluetooth

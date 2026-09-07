@@ -1,0 +1,7 @@
+{
+  "scene": "rainbow",
+  "brightness": 255,
+  "behavior": "auto",
+  "quiet_seconds": 15,
+  "threshold": 0.003
+}
