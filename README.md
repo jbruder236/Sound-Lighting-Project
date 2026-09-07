@@ -16,6 +16,19 @@ Laptop audio ────────────┤
 
 ## Light it up
 
+**On the `TUI` branch:** a small terminal dashboard for the whole room.
+Scenes, brightness, a separate color-picker window, and live sound/connection health.
+
+```sh
+# On the Pi, after the core installation below:
+bash install/install-tui.sh
+sudo lights tui
+# Or open it directly from your laptop:
+ssh -t rpi4 'sudo lights tui'
+```
+
+Closing the dashboard leaves the lights running. [Dashboard guide →](docs/dashboard.md)
+
 Want it to run whenever the Pi is powered? [Install boot startup](docs/installation.md).
 
 ```sh
@@ -38,6 +51,8 @@ sudo lights brightness 80
 **Rainbow** is saturated and flowing. **Aurora** is cyan, blue, and violet in broad
 moving curtains. **Workshop** is steady warm-white utility light. Changes fade in
 without restarting, and your choices survive reboot.
+**Custom**, on this branch, carries your chosen hue through slow motion and soft
+sound response. Choose it in the picker, or run `sudo lights color '#ff2870'`.
 
 Read the [daily controls and recovery guide](docs/operations.md), or the
 [hardware/audio setup](docs/setup.md) for a fresh machine. Always stop the service
@@ -53,6 +68,8 @@ forced kills and power loss cannot guarantee clearing.
 - **No-fuss controls.** Change scenes, brightness, and sound behavior without a restart.
 
 ## Ready for the garage · 1.0.0
+
+`master` remains the tagged 1.0 release. `TUI` is the **1.1.0-dev** dashboard branch.
 
 | | Notes |
 | --- | --- |
@@ -73,6 +90,8 @@ See [version notes](CHANGELOG.md) for the concise release history.
 | [addy_bluetooth.py](RpiLightStripCodes/addy_bluetooth.py) | The live, sound-reactive lighting program. |
 | [settings.py](RpiLightStripCodes/settings.py) | Shared validation and atomic settings updates. |
 | [lights.py](tools/lights.py) | Scene controls and live health status. |
+| [dashboard.py](tools/dashboard.py) · [style](tools/dashboard.tcss) | Optional Textual dashboard and color dialog. |
+| [dashboard_data.py](tools/dashboard_data.py) | Settings and audio inspection, with no LED driver. |
 | [addy_demo.py](RpiLightStripCodes/addy_demo.py) | Utility light, color checks, and sound-free patterns. |
 | [connect_garage_audio.py](tools/connect_garage_audio.py) | Restore or continuously maintain AUX/Bluetooth output. |
 | [legacy/](legacy/) | Earlier experiments, images, and iterations. Deprecated, preserved, visible. |

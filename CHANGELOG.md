@@ -1,5 +1,19 @@
 # Version notes
 
+## 1.1.0-dev · TUI branch
+
+**Features:** Live terminal dashboard; scene and screensaver controls; brightness;
+separate color dialog with swatch and presets; animated Custom hue; signal history,
+capture retries, peak/clipping counters, and Bluetooth route/USB detection.
+
+**Behavior:** Controls update the existing service and persist across reboot.
+Closing or canceling the dashboard leaves lighting alone. Textual is optional and
+isolated from the LED engine. Narrow terminals scroll through stacked panels.
+
+**Limits:** Signal history samples at 1 Hz; audio routes at 5 seconds. Radio packet
+loss and AUX/Bluetooth latency remain unmeasured. This branch is not a tagged
+stable release. See the [dashboard guide](docs/dashboard.md), including rollback.
+
 ## 1.0.0 · 2026-09-07
 
 ### Features
