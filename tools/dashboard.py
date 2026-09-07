@@ -164,6 +164,7 @@ class Dashboard(App):
                     yield Static('RMS · 60s', classes='muted')
                     yield Static('', id='capture', markup=False)
                     yield Static('', id='timing', markup=False)
+                    yield Static('', id='spectrum', markup=False)
             with Vertical(classes='panel', id='connection'):
                 yield Label('link', classes='eyebrow')
                 yield Static('Checking audio…', id='route', markup=False)
@@ -171,6 +172,8 @@ class Dashboard(App):
         yield Footer()
 
     def on_mount(self):
+        self.query_one('#spectrum').tooltip = ('Laptop FFT: 2,048 samples at 48 kHz (42.67 ms), up to 20 Hz. '
+            'SSH RTT and feature freshness are not sound-to-light latency.')
         self.query_one('#timing').tooltip = ('Analysis window and requested PipeWire buffer only. '
             'Bluetooth transport and LED smoothing add delay; these figures are not a total.')
         if hasattr(self.backend, 'run'):
@@ -358,6 +361,12 @@ class Dashboard(App):
         self.query_one('#timing', Static).update('Timing —' if stale else
             f"Window {window:g} ms · request {request:g} ms\nLatency · end-to-end unmeasured"
             if window is not None and request is not None else 'Latency · end-to-end unmeasured')
+        spectral = self.query_one('#spectrum', Static)
+        spectral.display = d.get('scene') == 'spectrum'
+        spectral.update('Spectrum · laptop unavailable; rainbow fallback'
+            if stale or d.get('spectrum') != 'receiving' else
+            f"Spectrum · {d.get('spectrum_band') or 'quiet'} · FFT {d.get('spectrum_fft_ms', 0):g} ms\n"
+            f"SSH RTT {d.get('spectrum_ssh_rtt_ms', 0):g} ms · features {d.get('spectrum_age_ms', 0)} ms old")
         frame_age = d.get('audio_age_seconds')
         age_text = 'no frames yet' if frame_age is None else f'frame {frame_age}s'
         self.query_one('#runtime', Static).update('Engine —' if stale else

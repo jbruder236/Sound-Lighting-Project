@@ -42,3 +42,5 @@ ColorPicker { align: center middle; background: $background 80%; }
 #picker Static { height: auto; }
 #picker #swatch { height: 3; margin: 1 0; }
 #picker #color-error { height: 2; color: $warning; }
+
+#spectrum { height: auto; color: $secondary; }
