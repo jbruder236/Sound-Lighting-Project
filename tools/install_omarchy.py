@@ -50,8 +50,8 @@ def main():
         'StartupWMClass=org.omarchy.SoundLighting\nCategories=AudioVideo;\n'
         'Keywords=Garage;LED;Raspberry;Pi;Sound;Lighting;\n')
     shutil.copy2(repo / 'install/sound-lighting.svg', icon)
-    window_rules.write_text('-- Sound Lighting: a comfortable app window, using the default terminal.\n'
-        'o.window("^org[.]omarchy[.]SoundLighting$", { float = true, center = true, size = { 1100, 880 } })\n')
+    window_rules.write_text('-- Sound Lighting: normal Hyprland tiling, using the default terminal.\n'
+        'o.window("^org[.]omarchy[.]SoundLighting$", { float = false })\n')
     include = 'require("hypr.sound_lighting")'
     if include not in previous_config:
         hypr_config.write_text(previous_config.rstrip() + '\n\n-- Sound Lighting app window.\n' + include + '\n')
