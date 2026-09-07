@@ -21,13 +21,14 @@ RATE, CHUNK = 48000, 1024
 
 class LightState:
     """Use actual sound, not merely an open audio device, to select the mode."""
-    def __init__(self, now, quiet_seconds=15, threshold=0.003):
+    def __init__(self, now, quiet_seconds=4, threshold=0.003):
         self.quiet_seconds, self.threshold = quiet_seconds, threshold
         self.last_sound = None
         self.last_update = now
         self.reference = 0.08
         self.envelope = self.mix = 0.0
         self.mode = 'idle'
+        self.gain = 1.0
 
     def update(self, now, rms, reactive=True):
         dt = max(0.0, min(0.25, now - self.last_update))
@@ -36,12 +37,17 @@ class LightState:
             self.last_sound = now
         self.mode = ('sound' if self.last_sound is not None and
                      now - self.last_sound < self.quiet_seconds else 'idle')
+        if self.mode == 'sound' and now - self.last_sound > 0.25:
+            self.mode = 'quiet'
         self.reference = max(0.025, rms, self.reference * math.exp(-dt / 6))
         level = min(1.0, rms / self.reference) if rms >= self.threshold else 0.0
         tau = 0.45 if level > self.envelope else 1.6
         self.envelope += (level - self.envelope) * (1 - math.exp(-dt / tau))
         if not reactive:
             self.mode = 'idle'
+        gain = 0.08 if self.mode == 'quiet' else 1.0
+        gain_tau = 0.22 if gain < self.gain else 1.0
+        self.gain += (gain - self.gain) * (1 - math.exp(-dt / gain_tau))
         target = float(self.mode == 'sound')
         self.mix += (target - self.mix) * (1 - math.exp(-dt / 1.2))
 
@@ -62,7 +68,7 @@ def frame(count, elapsed, state, scene='rainbow', color='#ff9646'):
         sound_value = (0.72 + 0.28 * state.envelope) * (0.78 + 0.22 * ribbon)
         idle_wave = 0.5 + 0.5 * math.sin(position * math.tau - elapsed / 7)
         idle_value = 0.76 + 0.18 * idle_wave
-        value = idle_value * (1 - state.mix) + sound_value * state.mix
+        value = (idle_value * (1 - state.mix) + sound_value * state.mix) * state.gain
         if scene == 'custom':
             rgb = tuple(int(color[j:j + 2], 16) / 255 * value for j in (1, 3, 5))
         else:
@@ -189,7 +195,7 @@ def main():
     ap.add_argument('--brightness', type=int, default=255)
     ap.add_argument('--target', default=TARGET, help='PipeWire sink monitor to capture')
     ap.add_argument('--audio-user', default='pi', help='User owning the PipeWire session')
-    ap.add_argument('--quiet-seconds', type=float, default=15)
+    ap.add_argument('--quiet-seconds', type=float, default=4)
     ap.add_argument('--threshold', type=float, default=0.003, help='Sound threshold as normalized RMS (0..1)')
     ap.add_argument('--audio-only', action='store_true', help='Test audio and mode transitions without GPIO')
     args = ap.parse_args()
@@ -259,7 +265,8 @@ def main():
                 if previous_pixels is None:
                     previous_pixels = desired
                 else:
-                    previous_pixels += (desired - previous_pixels) * (1 - math.exp(-dt / 0.65))
+                    fade = 0.15 if state.mode == 'quiet' else 0.65
+                    previous_pixels += (desired - previous_pixels) * (1 - math.exp(-dt / fade))
                 brightness += (config.brightness - brightness) * (1 - math.exp(-dt / 0.65))
                 strip.setBrightness(round(brightness))
                 for i, rgb in enumerate(previous_pixels):
@@ -274,6 +281,7 @@ def main():
                         'uptime_seconds': round(now - start, 1), 'scene': config.scene,
                         'brightness_percent': round(config.brightness / 255 * 100),
                         'mode': state.mode, 'behavior': config.behavior, 'color': config.color,
+                        'output_gain_percent': round(state.gain * 100),
                         'rms': round(rms, 5),
                         'sound_age_seconds': None if state.last_sound is None else round(now - state.last_sound, 1),
                         'quiet_seconds': config.quiet_seconds,

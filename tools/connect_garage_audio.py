@@ -67,9 +67,12 @@ def ensure_audio(address, wired):
         call('pactl', 'unload-module', str(module['index']))
         module = None
     if module is None:
+        old_combined = next((s for s in sinks if s['name'] == COMBINED), None)
+        old_mute = (old_combined or next(s for s in sinks if s['name'] == wired)).get('mute', False)
         call('pactl', 'load-module', 'module-combine-sink', f'sink_name={COMBINED}',
              f'slaves={wired},{bt}', 'sink_properties=device.description=Garage-AUX-and-Pi')
         call('pactl', 'set-sink-volume', bt, '100%')
+        call('pactl', 'set-sink-mute', COMBINED, str(int(old_mute)))
     sinks = listing('sinks')
     combined = next(s for s in sinks if s['name'] == COMBINED)
     # Don't change the physical speaker's volume or mute state.
@@ -80,6 +83,22 @@ def ensure_audio(address, wired):
         if props.get('application.process.id') and str(stream.get('sink')) != str(combined['index']):
             call('pactl', 'move-sink-input', str(stream['index']), COMBINED)
     return 'Connected: AUX + Pi. Speaker volume preserved.'
+
+
+def sync_mute(address, wired, previous):
+    """Omarchy may mute either a physical sink or the combined sink. Follow both."""
+    prefix = 'bluez_output.' + address.replace(':', '_') + '.'
+    states = {s['name']: s['mute'] for s in listing('sinks')
+              if s['name'] in (wired, COMBINED) or s['name'].startswith(prefix)}
+    changed = [name for name in states if name in previous and states[name] != previous[name]]
+    if changed:
+        muted = states[changed[-1]]
+    else:
+        muted = next((previous[n] for n in states if n in previous), any(states.values()))
+    for name, value in states.items():
+        if value != muted:
+            call('pactl', 'set-sink-mute', name, str(int(muted)))
+    return dict.fromkeys(states, muted)
 
 
 def main():
@@ -100,19 +119,25 @@ def main():
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, stop)
     previous = None
+    mute_states = {}
+    next_repair = 0
     while not stopped:
         try:
-            message = ensure_audio(address, args.wired)
+            if time.monotonic() >= next_repair:
+                message = ensure_audio(address, args.wired)
+                next_repair = time.monotonic() + 15
+            mute_states = sync_mute(address, args.wired, mute_states)
             failed = False
         except (OSError, RuntimeError, ValueError, subprocess.SubprocessError, StopIteration) as error:
             message = 'Audio link unavailable: ' + str(error)
             failed = True
+            next_repair = time.monotonic() + 15
         if message != previous:
             print(message, flush=True)
             previous = message
         if not args.watch:
             return int(failed)
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + 0.5
         while not stopped and time.monotonic() < deadline:
             time.sleep(0.25)
     return 0

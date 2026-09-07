@@ -17,7 +17,7 @@ class Settings:
     scene: str = 'rainbow'
     brightness: int = 255
     behavior: str = 'auto'
-    quiet_seconds: float = 15
+    quiet_seconds: float = 4
     threshold: float = 0.003
     color: str = '#ff9646'
 

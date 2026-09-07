@@ -17,11 +17,11 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(state.mix, 0)
 
     def test_quiet_timeout_and_immediate_return(self):
-        state = lighting.LightState(0)
+        state = lighting.LightState(0, quiet_seconds=15)
         state.update(1, 0.1)
         self.assertEqual(state.mode, 'sound')
         state.update(15.99, 0)
-        self.assertEqual(state.mode, 'sound')
+        self.assertEqual(state.mode, 'quiet')
         state.update(16, 0)
         self.assertEqual(state.mode, 'idle')
         state.update(16.1, 0.1)
@@ -68,6 +68,21 @@ class ModeTests(unittest.TestCase):
         b = lighting.frame(100, 5, state)
         for x, y in zip(a, b):
             self.assertEqual(x.index(min(x)), y.index(min(y)))
+
+    def test_silence_dims_quickly_then_standby_recovers(self):
+        state = lighting.LightState(0)
+        for i in range(1, 31):
+            state.update(i / 30, 0.1)
+        for i in range(31, 61):
+            state.update(i / 30, 0)
+        self.assertEqual(state.mode, 'quiet')
+        self.assertLess(state.gain, 0.13)
+        for i in range(61, 241):
+            state.update(i / 30, 0)
+        self.assertEqual(state.mode, 'idle')
+        self.assertGreater(state.gain, 0.95)
+        state.update(8.1, 0.1)
+        self.assertEqual(state.mode, 'sound')
 
 
 class SceneTests(unittest.TestCase):
