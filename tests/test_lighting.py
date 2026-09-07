@@ -1,0 +1,72 @@
+import importlib.util
+from pathlib import Path
+import unittest
+
+spec = importlib.util.spec_from_file_location('lighting', Path(__file__).resolve().parents[1] / 'RpiLightStripCodes/addy_bluetooth.py')
+lighting = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(lighting)
+
+
+class ModeTests(unittest.TestCase):
+    def test_starts_in_idle_without_audio(self):
+        state = lighting.LightState(0)
+        state.update(60, 0)
+        self.assertEqual(state.mode, 'idle')
+        self.assertEqual(state.mix, 0)
+
+    def test_quiet_timeout_and_immediate_return(self):
+        state = lighting.LightState(0)
+        state.update(1, 0.1)
+        self.assertEqual(state.mode, 'sound')
+        state.update(15.99, 0)
+        self.assertEqual(state.mode, 'sound')
+        state.update(16, 0)
+        self.assertEqual(state.mode, 'idle')
+        state.update(16.1, 0.1)
+        self.assertEqual(state.mode, 'sound')
+
+    def test_noise_does_not_reset_timeout(self):
+        state = lighting.LightState(0)
+        state.update(1, 0.1)
+        for i in range(2, 17):
+            state.update(i, 0.002)
+        self.assertEqual(state.mode, 'idle')
+
+    def test_crossfade_is_gradual_and_reversible(self):
+        state = lighting.LightState(0, quiet_seconds=1)
+        state.update(0.03, 0.1)
+        self.assertGreater(state.mix, 0)
+        self.assertLess(state.mix, 0.05)
+        for i in range(2, 100):
+            state.update(i * 0.03, 0.1)
+        before = state.mix
+        state.update(4, 0)
+        self.assertEqual(state.mode, 'idle')
+        self.assertGreater(state.mix, 0)
+        self.assertLess(state.mix, before)
+
+    def test_render_stays_colorful_lit_and_bounded(self):
+        state = lighting.LightState(0)
+        for count in (1, 100):
+            for t in (0, 15, 70, 1000):
+                for mix in (0, 0.5, 1):
+                    state.mix = mix
+                    pixels = lighting.frame(count, t, state)
+                    self.assertEqual(len(pixels), count)
+                    for rgb in pixels:
+                        self.assertTrue(all(0 <= c <= 255 for c in rgb))
+                        self.assertGreater(max(rgb), 100)
+                        self.assertEqual(min(rgb), 0)
+
+    def test_music_does_not_jump_hue(self):
+        state = lighting.LightState(0)
+        state.mix = 1
+        a = lighting.frame(100, 5, state)
+        state.envelope = 1
+        b = lighting.frame(100, 5, state)
+        for x, y in zip(a, b):
+            self.assertEqual(x.index(min(x)), y.index(min(y)))
+
+
+if __name__ == '__main__':
+    unittest.main()
