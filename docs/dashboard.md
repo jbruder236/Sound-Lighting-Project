@@ -37,7 +37,7 @@ resizes, and moves between workspaces normally; it no longer forces a floating s
 
 | Control | What happens |
 | --- | --- |
-| Scene | Rainbow, Aurora, Sunset, Ocean, Ember, Candy, steady White, or Custom. |
+| Scene | Rainbow, Aurora, Sunset, Ocean, Ember, Candy, steady White, or Custom. The experimental branch adds [Spectrum](spectrum.md), driven by a laptop FFT. |
 | Behavior / A / S | Auto follows sound; Screensaver keeps the idle animation. Workshop stays steady. |
 | Brightness | Drag the slider and release; arrows change 1%, PgUp/PgDn 10%, Home/End reach the limits. Exact entry + Enter or Apply % also works. Zero stays dark, including after reboot. |
 | White · warm ↔ cool | Drag or use arrow keys to select steady White and adjust its tint. 0 is warm, 100 cool; 50 preserves the original Workshop white. |

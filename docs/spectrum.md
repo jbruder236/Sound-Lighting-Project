@@ -14,7 +14,10 @@ The same benchmark on this Pi 4 measured **0.54 ms median, 0.60 ms p95**
 offloading leaves the renderer simpler, but the FFT itself was not a major
 latency risk. These are short synthetic compute benchmarks, not endurance tests.
 
-The laptop captures the `garage_dual` sink monitor at **48 kHz / 16-bit mono**.
+The laptop uses `parec` (from `libpulse` on Omarchy) to capture the explicit
+`garage_dual.monitor` through PipeWire’s PulseAudio compatibility server at
+**48 kHz / 16-bit mono**. Direct `pw-record` capture could not attach to this
+virtual combine sink during the live check.
 A window covers **42.67 ms**, with **23.44 Hz bin spacing**, and updates arrive at
 most every **50 ms**. The [NumPy real FFT](https://numpy.org/doc/stable/reference/generated/numpy.fft.rfft.html)
 provides the spectrum; a Hann window reduces leakage between neighboring bins.
@@ -72,7 +75,7 @@ does not stop the optional laptop publisher; disable its service if unwanted.
 
 The dashboard reports FFT compute time, recent **SSH request/acknowledgement RTT**,
 and age since the Pi received the features. These are not sound-to-light latency.
-SSH RTT includes receiver processing. The laptop’s [20 ms PipeWire capture request](https://docs.pipewire.org/page_man_pw-cat_1.html)
+SSH RTT includes receiver processing. The laptop’s `parec --latency-msec=20` capture request
 is not a measurement of the entire route either.
 
 Local features bypass Bluetooth buffering and may precede the Pi’s audio signal.
@@ -136,6 +139,14 @@ git switch TUI
 
 This branch adds the `spectrum` scene but no new persistent settings fields.
 The expired feature file is harmless on TUI. The optional environment may remain.
+
+## Live check on this setup
+
+A 12-second sequence of 90 Hz, 700 Hz, and 4 kHz tones arrived as Bass, Mids,
+and Air. Observed FFT compute time was 0.15–0.23 ms; sampled SSH RTT ranged
+from 5.7–110.8 ms. Stopping the publisher expired the feature feed; restarting
+it recovered, with the same LED process. The prior scene/mode was restored.
+These are short-run observations, not a latency guarantee.
 
 ## Check it without hardware
 

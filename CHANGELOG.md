@@ -9,6 +9,9 @@ FFT runs on Omarchy, independently of the dashboard, with a small SSH feature fe
 feature expiry, automatic capture/link retry, and rainbow fallback. Pi loudness
 continues to control quiet dimming and standby. Existing scenes remain available.
 
+**Capture fix:** Use the combine sink’s explicit Pulse monitor; direct PipeWire
+capture failed to attach to the virtual node on this laptop.
+
 **Timing:** 0.08 ms median laptop FFT benchmark; 42.67 ms windows, up to 20 Hz updates.
 The TUI separates FFT cost, SSH RTT, and feature freshness. Sound/light alignment
 remains uncalibrated. [Assessment, installation, and rollback →](docs/spectrum.md)
