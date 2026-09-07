@@ -1,5 +1,37 @@
 # Version notes
 
+## 0.2.0 · 2026-09-07
+
+### Features
+
+- Lights start at boot without a desktop login or connected audio source.
+- Saturated idle animation starts immediately; music smoothly takes over.
+- Fifteen seconds of quiet returns to idle; sound resumes reaction automatically.
+- Dedicated virtual Bluetooth input removes the USB sound-card dependency.
+- Versioned service/audio configuration, installer backups, and installation guide.
+
+### Fixes
+
+- Missing or disconnected audio no longer exits the LED program or freezes animation.
+- Restart failed/stalled capture with a five-second retry interval.
+- Refuse fallback to an unrelated capture device when the intended target is absent.
+- Use a music-only Bluetooth receiver role to avoid headset-profile reconnections.
+- Stop the recorder directly as the Pi user and preserve orderly service shutdown.
+
+### Known limitations
+
+- Bluetooth/AUX timing remains uncalibrated; the laptop helper may be needed after reboot.
+- Installer targets the documented pi/UID 1000/repository layout.
+- Very quiet audio may need a lower `--threshold`; persistent noise may need a higher one.
+- No software current limiting. Power loss/SIGKILL cannot guarantee clearing.
+
+
+### Verified
+
+- Six automated tests on the Pi's Python 3.13 runtime.
+- Real Bluetooth silence: idle after 15 seconds, sound mode restored automatically.
+- Real reboot: service started in idle, recovered audio, and remained active with zero restarts.
+
 ## 0.1.0 · 2026-09-07
 
 ### Features

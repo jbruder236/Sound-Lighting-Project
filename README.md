@@ -16,6 +16,15 @@ Laptop audio ────────────┤
 
 ## Light it up
 
+Want it to run whenever the Pi is powered? [Install boot startup](docs/installation.md).
+
+```sh
+sudo bash install/install.sh
+```
+
+It starts in colorful idle mode, follows music when it arrives, and returns to idle
+after **15 seconds of quiet**. No desktop login or USB sound card needed.
+
 On the configured Pi, from this repository:
 
 ```sh
@@ -43,17 +52,17 @@ try `sudo python3 RpiLightStripCodes/addy_demo.py --mode garage` after stopping 
 
 - **Color that stays colorful.** Fully saturated bands, slowly drifting along the strip.
 - **Music without the flicker.** Fast changes in sound soften into a gentle glow.
-- **Light between songs.** A brightness floor keeps silent audio from blacking out the room.
+- **Light between songs.** A colorful idle animation takes over after 15 seconds of quiet.
 - **A cord less.** AUX feeds the speaker while Bluetooth carries the same audio to the Pi.
 - **Quick experiments.** One live file, a short restart, and each version stays on until replaced.
 
-## On the bench · 0.1.0
+## On the bench · 0.2.0
 
 | | Notes |
 | --- | --- |
-| Features | Bluetooth input, smooth rainbow flow, continuous operation, standalone utility-light demos. |
-| Fixed during tuning | Wrong color order; washed-out colors; abrupt audio-driven hue changes; explicit shutdown cleanup. |
-| Known limitations | Bluetooth timing is not calibrated to AUX. Requires the Pi's active user audio session and connected USB card. No automatic reconnect or boot startup. |
+| Features | Boot startup, automatic sound/idle transitions, smooth rainbow flow, utility-light demos. |
+| Fixed during tuning | Missing audio no longer stops the lights. Capture recovers after audio-server loss. Colors remain saturated. |
+| Known limitations | Bluetooth timing is not calibrated to AUX. The laptop may need its connection helper after reboot. Power/current limiting is external. |
 
 Current wiring: **GPIO21 / physical pin 40**, **GBR**, **100 addressable groups**.
 Group count is not necessarily the number of physical LEDs. Brightness is capped

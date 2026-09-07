@@ -2,13 +2,12 @@
 
 ## The working arrangement
 
-The Dell runs PipeWire and sends audio to its headphone jack and the paired Pi
-Bluetooth receiver. On the Pi, WirePlumber routes incoming Bluetooth playback to
-the USB audio output. Python captures that output's monitor with `pw-record`.
-It does not read the USB microphone: no splitter or second aux cable is needed.
+The Dell sends audio to its headphone jack and the paired Pi Bluetooth receiver.
+The Pi routes incoming Bluetooth playback to `lighting_audio`, a virtual sink.
+Python captures its monitor with `pw-record`. No USB card or aux cable is required.
 
-This documents the working installation. Device names and the `pi` username are
-specific to it; this is not a universal installer.
+For automatic startup and sound/idle transitions, follow [installation](installation.md).
+This setup targets user `pi` and the existing repository path on the Pi.
 
 ## Hardware
 
@@ -66,8 +65,8 @@ off afterward. The Pi must offer A2DP Audio Sink. The
 [WirePlumber docs](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/bluetooth.html)
 explain roles and active-session ownership.
 
-The current Pi uses its existing logged-in user audio session. No lingering,
-headless audio-policy override, or boot service has been installed.
+The boot installer enables the Pi user audio session through lingering and
+configures Bluetooth audio for headless use. No desktop login is required.
 
 On the laptop, get the paired Pi address with `bluetoothctl devices`, then:
 
@@ -103,22 +102,14 @@ Use `--seconds 0` for continuous operation. GPIO access runs as root; recording
 runs as `pi` against that user's PipeWire session. The default monitor target is:
 
 ```text
-alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.analog-stereo
+lighting_audio
 ```
 
 Override with `--target NODE_NAME` after inspecting `wpctl status` or `pw-dump`.
 The target must be the sink receiving Bluetooth playback.
 
-Create the temporary background service if it is not already loaded:
-
-```sh
-sudo systemd-run --unit=addy-bluetooth \
-  --property=KillSignal=SIGTERM --property=TimeoutStopSec=8 \
-  /usr/bin/python3 /home/pi/Sound-Lighting-Project/RpiLightStripCodes/addy_bluetooth.py \
-  --seconds 0
-```
-
-This does not enable boot startup. Once created:
+Install the permanent boot service with `sudo bash install/install.sh`.
+Then use:
 
 ```sh
 sudo systemctl restart addy-bluetooth.service
@@ -126,8 +117,9 @@ sudo systemctl stop addy-bluetooth.service
 sudo journalctl -u addy-bluetooth.service -n 15 --no-pager
 ```
 
-If systemd has unloaded the stopped transient unit, create it again with
-`systemd-run` rather than `restart`.
+It starts automatically at boot, displays idle color without audio, and switches
+between sound and idle modes with a 15-second quiet timeout. See the
+[installation guide](installation.md) for tuning and removal.
 
 ## Fast iteration
 
@@ -146,8 +138,8 @@ material, not a supported rollback target.
 | Symptom | Check |
 | --- | --- |
 | No reaction | Music routed to `garage_dual`? Pi connected? Nonzero RMS in audio-only check? |
-| Missing monitor | Keep the USB card connected and Pi user audio session active. Inspect `wpctl status`. |
-| Stops after disconnection | Reconnect audio, then restart. Automatic reconnect is not implemented. |
+| Missing monitor | Check the Lighting Audio virtual sink and Pi user audio services. Inspect `wpctl status`. |
+| No sound after reconnect | Re-run the laptop helper. Capture retries automatically; idle lights keep running. |
 | Wrong colors | Current strip is GBR. Use demo red/green/blue modes to identify another strip. |
 | Lights trail speaker | Bluetooth buffering; AUX synchronization is not calibrated. |
 | Too bright | Lower `--brightness` (0–255). It caps brightness, not measured power. |
