@@ -3,8 +3,8 @@
 From **0.2.0**, the Pi starts colorful, moving light at boot, even without a laptop,
 Bluetooth connection, USB sound card, or desktop login.
 
-When audio arrives, brightness smoothly starts following the music. After **15
-seconds below the sound threshold**, it blends back into the idle animation.
+When audio arrives, brightness smoothly starts following the music. On `TUI`, silence quickly dims the glow, then after **four seconds below the
+sound threshold**, it blends back into the idle animation.
 The colors keep flowing throughout. A connection opening by itself does not count
 as sound.
 
@@ -50,7 +50,9 @@ Boot ──► colorful idle animation
                ▼
          music-reactive glow
                │
-       15 seconds of quiet
+         quick dim
+               │
+        4 seconds of quiet
                └──────────────► colorful idle animation
 ```
 
@@ -107,7 +109,7 @@ sudo systemctl enable --now addy-bluetooth.service
 ```sh
 sudo lights scene rainbow
 sudo lights brightness 80
-sudo lights quiet 15
+sudo lights quiet 4
 sudo lights threshold 0.003
 lights status
 ```

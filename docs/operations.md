@@ -2,7 +2,8 @@
 
 v1.0 supports the documented Pi 4 installation, its GBR WS2811 strip, and the
 PipeWire laptop-to-Pi audio link. The defaults keep the approved saturated Rainbow
-scene and 15-second silence timeout.
+scene. The `TUI` branch adds a quick dim followed by standby after four seconds
+of silence; the tagged v1.0 default remains 15 seconds.
 
 ## Change the mood
 
@@ -16,7 +17,7 @@ sudo lights scene workshop
 sudo lights brightness 80
 sudo lights mode idle
 sudo lights mode auto
-sudo lights quiet 15
+sudo lights quiet 4
 sudo lights threshold 0.003
 ```
 
@@ -76,7 +77,9 @@ python3 tools/connect_garage_audio.py --pi-address YOUR_PI_BLUETOOTH_ADDRESS --w
 
 It checks every 15 seconds, reconnects when the Pi returns, selects A2DP when
 needed, and rebuilds the combined sink if the Bluetooth endpoint changes.
-It preserves the physical speaker's volume and mute state. It routes real
+It preserves the physical speaker’s volume. The `TUI` helper synchronizes mute
+and unmute across AUX, the combined sink, and the Pi feed every half-second, so
+Omarchy’s physical-output mute also silences the light input. It routes real
 application playback streams into `garage_dual` while active, including new apps.
 It does not pair unknown devices or enable discovery.
 

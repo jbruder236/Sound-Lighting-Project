@@ -16,20 +16,19 @@ Laptop audio ────────────┤
 
 ## Light it up
 
-**On the `TUI` branch:** a small terminal dashboard for the whole room.
-Scenes, brightness, a separate color-picker window, and live sound/connection health.
+**On the `TUI` branch:** an Omarchy app for the whole room.
+Press **SUPER+SPACE**, search **Sound Lighting**, and open it. Scenes, brightness,
+a separate color-picker window, and live sound/connection health follow your Pi.
+If it is powered off, the app stays open and retries automatically.
 
 ```sh
-# On the Pi, after the core installation below:
-bash install/install-tui.sh
-sudo lights tui
-# Or open it directly from your laptop:
-ssh -t rpi4 'sudo lights tui'
+# Install the app on Omarchy, using your existing SSH alias:
+python3 tools/install_omarchy.py --host rpi4
 ```
 
 Closing the dashboard leaves the lights running. [Dashboard guide →](docs/dashboard.md)
 
-![Sound Lighting dashboard on the Pi](docs/images/dashboard.png)
+![Sound Lighting on Omarchy](docs/images/dashboard.png)
 
 Want it to run whenever the Pi is powered? [Install boot startup](docs/installation.md).
 
@@ -37,8 +36,10 @@ Want it to run whenever the Pi is powered? [Install boot startup](docs/installat
 sudo bash install/install.sh
 ```
 
-It starts in colorful idle mode, follows music when it arrives, and returns to idle
-after **15 seconds of quiet**. No desktop login or USB sound card needed.
+It starts in colorful standby and follows music when it arrives. Silence dims the
+glow quickly, then colorful standby returns after **four seconds of quiet**.
+No desktop login or USB sound card needed. Existing installations retain their
+saved timeout; use `sudo lights quiet 4` for this branch’s shorter default.
 
 After installation, make changes while the lights keep running:
 
@@ -65,7 +66,8 @@ forced kills and power loss cannot guarantee clearing.
 
 - **Color that stays colorful.** Fully saturated bands, slowly drifting along the strip.
 - **Music without the flicker.** Fast changes in sound soften into a gentle glow.
-- **Light between songs.** A colorful idle animation takes over after 15 seconds of quiet.
+- **Light between songs.** A brief dim settles into colorful standby after four seconds.
+- **At home on Omarchy.** Launcher icon, your active theme, and automatic Pi reconnection.
 - **A cord less.** AUX feeds the speaker while Bluetooth carries the same audio to the Pi.
 - **No-fuss controls.** Change scenes, brightness, and sound behavior without a restart.
 
@@ -96,6 +98,7 @@ See [version notes](CHANGELOG.md) for the concise release history.
 | [dashboard_data.py](tools/dashboard_data.py) | Settings and audio inspection, with no LED driver. |
 | [addy_demo.py](RpiLightStripCodes/addy_demo.py) | Utility light, color checks, and sound-free patterns. |
 | [connect_garage_audio.py](tools/connect_garage_audio.py) | Restore or continuously maintain AUX/Bluetooth output. |
+| [remote_backend.py](tools/remote_backend.py) · [remote_agent.py](tools/remote_agent.py) | Reconnecting SSH control; no extra server port. |
 | [legacy/](legacy/) | Earlier experiments, images, and iterations. Deprecated, preserved, visible. |
 
 Python **3.13.5**, NumPy **2.2.4**, and `rpi_ws281x` **5.0.0** are the verified combination.

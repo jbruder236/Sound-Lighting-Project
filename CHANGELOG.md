@@ -2,6 +2,21 @@
 
 ## 1.1.0-dev · TUI branch
 
+**Omarchy app:** SUPER+SPACE → Sound Lighting; app icon, native terminal window,
+active theme colors, local dashboard, bounded SSH reconnects, offline countdown,
+and acknowledged controls. Disconnected changes are not queued.
+
+**Mute fix:** AUX, combined output, and the Pi feed now share mute/unmute without
+changing volume levels. Silence dims the strip quickly, then standby returns after
+four seconds. Workshop and forced Screensaver retain their ambient behavior.
+
+**Fixed:** Status refresh preserves brightness drafts; dashboard exit waits for its
+SSH child to be reaped. Launcher installation backs up and validates its window rule.
+
+**Checks:** 28 tests across core and optional UI environments; actual SSH drop and
+reconnection with controls restored; real mute → dim (~2s) → standby (~5s), then
+unmute → sound reaction, all with one unchanged lighting PID.
+
 **Features:** Live terminal dashboard; scene and screensaver controls; brightness;
 separate color dialog with swatch and presets; animated Custom hue; signal history,
 capture retries, peak/clipping counters, and Bluetooth route/USB detection.
