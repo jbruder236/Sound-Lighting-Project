@@ -1,7 +1,7 @@
 [Unit]
 Description=Sound Lighting - laptop frequency color analysis
-Wants=pipewire.service
-After=pipewire.service
+Wants=pipewire-pulse.service
+After=pipewire-pulse.service
 
 [Service]
 EnvironmentFile=%h/.config/sound-lighting/spectrum.env

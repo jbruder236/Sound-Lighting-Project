@@ -32,9 +32,11 @@ class Publisher:
         self.command = ['ssh', '-T', '-oBatchMode=yes', '-oConnectTimeout=3',
                         '-oServerAliveInterval=2', '-oServerAliveCountMax=2', host,
                         'sudo -n /usr/bin/python3 -u ' + shlex.quote(repo + '/tools/spectrum_receiver.py')]
-        self.capture_command = ['pw-record', '--target', target,
-            '--properties=stream.capture.sink=true node.dont-fallback=true',
-            '--latency=20ms', '--rate', str(RATE), '--channels', '1', '--format', 's16', '--raw', '-']
+        # The combine sink exposes a reliable Pulse monitor even when direct
+        # pw-record sink capture cannot link to its virtual node.
+        self.capture_command = ['parec', '--device=' + target + '.monitor',
+            '--latency-msec=20', '--rate=' + str(RATE), '--channels=1', '--format=s16le',
+            '--client-name=Sound Lighting Spectrum']
         self.pcm = bytearray()
         self.updated = 0.
         self.analyzer = Analyzer()
