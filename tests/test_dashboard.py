@@ -43,6 +43,7 @@ class BackendTests(unittest.TestCase):
 
 if importlib.util.find_spec('textual'):
     from dashboard import ColorPicker, Dashboard
+    from slider import Slider
     from textual.widgets import Input, Select, Static
 else:
     Dashboard = None
@@ -113,6 +114,8 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.pause()
             self.assertTrue(app.query_one('#scene').disabled)
+            self.assertTrue(app.query_one('#brightness-slider').disabled)
+            self.assertTrue(app.query_one('#white-slider').disabled)
             app.action_idle()
             await pilot.pause()
             self.assertEqual(self.backend.settings().behavior, 'auto')
@@ -127,6 +130,43 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self.backend.config.read_bytes(), before)
             self.assertEqual(app.query_one('#scene', Select).value, 'aurora')
             self.assertEqual(app.query_one('#brightness', Input).value, '27')
+            self.assertEqual(app.query_one('#brightness-slider', Slider).value, 27)
+
+    async def test_sliders_drag_commit_keyboard_coalesce_and_white_scene(self):
+        calls = []
+        async def apply(**values):
+            calls.append(values)
+            await asyncio.sleep(.1)
+            self.backend.save(**values)
+        self.backend.apply = apply
+        app = Dashboard(self.backend)
+        async with app.run_test(size=(100, 32)) as pilot:
+            await pilot.pause()
+            slider = app.query_one('#brightness-slider', Slider)
+            await pilot.mouse_down(slider, offset=(0, 0))
+            await pilot.hover(slider, offset=(10, 0))
+            await pilot.pause(.3)
+            self.assertEqual(calls, [])  # Drag is a local preview until release.
+            await pilot.mouse_up(slider, offset=(10, 0))
+            await pilot.pause(.5)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(self.backend.settings().brightness, round(slider.value * 255 / 100))
+            slider.focus()
+            await pilot.press('home', 'right', 'right', 'pageup')
+            await pilot.pause(.5)
+            self.assertEqual(slider.value, 12)
+            self.assertEqual(self.backend.settings().brightness, 31)
+            app.query_one('#white-slider').focus()
+            await pilot.press('end')
+            await pilot.pause(.5)
+            self.assertEqual(self.backend.settings().scene, 'workshop')
+            self.assertEqual(self.backend.settings().white, 100)
+            self.assertEqual(self.backend.settings().brightness, 31)
+            atomic_json(self.status, {'updated_at': time.time(), 'analysis_window_ms': 21.33,
+                                     'capture_requested_ms': 20})
+            app.refresh_status()
+            self.assertIn('unmeasured', str(app.query_one('#timing', Static).render()))
+            self.assertIn('21.33 ms', str(app.query_one('#timing', Static).render()))
 
     async def test_remote_dashboard_exit_reaps_ssh_child(self):
         from remote_backend import RemoteBackend

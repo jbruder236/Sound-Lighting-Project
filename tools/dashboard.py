@@ -17,6 +17,7 @@ from textual.widgets import Button, Footer, Input, Label, ProgressBar, Select, S
 
 from dashboard_data import Backend
 from settings import SCENES, VERSION, Settings
+from slider import Slider
 
 
 class ColorPicker(ModalScreen[str | None]):
@@ -35,6 +36,9 @@ class ColorPicker(ModalScreen[str | None]):
             yield Input(self.color, id='hex', max_length=7)
             with Horizontal(classes='row'):
                 for name, color in [('Amber', 'ff9646'), ('Rose', 'ff2870'), ('Ice', '00dcca'), ('Violet', '8040ff')]:
+                    yield Button(name, id='preset-' + color, compact=True)
+            with Horizontal(classes='row'):
+                for name, color in [('Gold', 'ffd040'), ('Mint', '46ffb0'), ('Coral', 'ff6046'), ('Blue', '3070ff')]:
                     yield Button(name, id='preset-' + color, compact=True)
             yield Static('', id='color-error')
             with Horizontal(classes='row'):
@@ -85,6 +89,9 @@ class Dashboard(App):
         super().__init__()
         self.backend = backend or Backend()
         self.displayed = None
+        self.slider_pending = {}
+        self.slider_saving = False
+        self.slider_timer = None
         self.load_omarchy_theme()
         self.history = deque([0.0] * 60, maxlen=60)
         self.data = {}
@@ -130,18 +137,22 @@ class Dashboard(App):
                 with Vertical(id='controls', classes='panel'):
                     yield Label('light', classes='eyebrow')
                     yield Label('Scene')
-                    yield Select([(s.title(), s) for s in SCENES], allow_blank=False,
+                    yield Select([('White' if s == 'workshop' else s.title(), s) for s in SCENES], allow_blank=False,
                                  value=self.initial.scene, compact=True, id='scene')
                     yield Label('Mode')
                     yield Select([('Auto', 'auto'), ('Standby', 'idle')],
                                  allow_blank=False, value=self.initial.behavior, compact=True, id='behavior')
-                    yield Label('Brightness %')
+                    yield Label('Brightness')
+                    yield Slider(round(self.initial.brightness / 255 * 100), id='brightness-slider',
+                                 tooltip='Drag and release · arrows ±1 · PgUp/PgDn ±10 · Home/End')
+                    yield Label('White · warm ↔ cool')
+                    yield Slider(self.initial.white, id='white-slider',
+                                 tooltip='Moving this selects steady White. RGB tint, not calibrated Kelvin.')
                     with Horizontal(classes='row'):
-                        yield Button('−10', compact=True, id='dimmer')
-                        yield Input('100', type='integer', id='brightness', max_length=3, compact=True)
-                        yield Button('+10', compact=True, id='brighter')
-                    with Horizontal(classes='row'):
-                        yield Button('Apply', compact=True, id='set-brightness')
+                        yield Input(str(round(self.initial.brightness / 255 * 100)), type='integer',
+                                    id='brightness', max_length=3, compact=True,
+                                    tooltip='Exact brightness % · Enter to apply')
+                        yield Button('Apply %', compact=True, id='set-brightness')
                         yield Button('Color…', compact=True, id='pick-color')
                     yield Static('', id='saved', markup=False)
                 with Vertical(id='monitor', classes='panel'):
@@ -152,6 +163,7 @@ class Dashboard(App):
                     yield Sparkline(list(self.history), summary_function=max, id='wave')
                     yield Static('RMS · 60s', classes='muted')
                     yield Static('', id='capture', markup=False)
+                    yield Static('', id='timing', markup=False)
             with Vertical(classes='panel', id='connection'):
                 yield Label('link', classes='eyebrow')
                 yield Static('Checking audio…', id='route', markup=False)
@@ -159,6 +171,8 @@ class Dashboard(App):
         yield Footer()
 
     def on_mount(self):
+        self.query_one('#timing').tooltip = ('Analysis window and requested PipeWire buffer only. '
+            'Bluetooth transport and LED smoothing add delay; these figures are not a total.')
         if hasattr(self.backend, 'run'):
             self.run_worker(self.backend.run(), name='Pi connection')
         self.sync_controls()
@@ -191,8 +205,13 @@ class Dashboard(App):
                 widget.value = value
         if not keep_draft or not dirty:
             brightness_input.value = str(round(config.brightness / 255 * 100))
-        for widget in self.query('#controls Button, #controls Input, #controls Select'):
+        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider'):
             widget.disabled = not self.backend.controls_available
+        if not self.slider_pending and not self.slider_saving:
+            for name, value in [('brightness', round(config.brightness / 255 * 100)), ('white', config.white)]:
+                slider = self.query_one('#' + name + '-slider', Slider)
+                if not slider.dragging:
+                    slider.value = value
         if self.backend.readonly:
             self.message('Read-only')
 
@@ -221,6 +240,37 @@ class Dashboard(App):
             return
         self.save(**{event.select.id: event.value})
 
+    @on(Slider.Changed)
+    def slider_changed(self, event):
+        if not self.backend.controls_available:
+            return
+        if event.slider.id == 'brightness-slider':
+            self.slider_pending['brightness'] = round(event.value * 255 / 100)
+            self.query_one('#brightness', Input).value = str(event.value)
+        else:
+            self.slider_pending.update(white=event.value, scene='workshop')
+        if self.slider_timer:
+            self.slider_timer.stop()
+        self.slider_timer = self.set_timer(.25, self.save_sliders)
+
+    @work(group='sliders')
+    async def save_sliders(self):
+        # One in-flight write; fast keyboard changes collapse to the newest value.
+        if self.slider_saving:
+            return
+        self.slider_saving = True
+        try:
+            while self.slider_pending:
+                values, self.slider_pending = self.slider_pending, {}
+                await self.backend.apply(**values)
+            self.message('Saved')
+        except (OSError, ValueError) as error:
+            self.slider_pending.clear()  # Never replay a disconnected edit later.
+            self.message(str(error))
+        finally:
+            self.slider_saving = False
+            self.sync_controls()
+
     @on(Input.Submitted, '#brightness')
     def brightness_enter(self):
         self.set_brightness()
@@ -237,8 +287,7 @@ class Dashboard(App):
         self.save(brightness=round(value * 255 / 100))
 
     def on_button_pressed(self, event):
-        actions = {'dimmer': lambda: self.set_brightness(-10), 'brighter': lambda: self.set_brightness(10),
-                   'set-brightness': self.set_brightness, 'pick-color': self.action_color}
+        actions = {'set-brightness': self.set_brightness, 'pick-color': self.action_color}
         if event.button.id in actions:
             actions[event.button.id]()
 
@@ -272,7 +321,7 @@ class Dashboard(App):
             self.query_one('#route', Static).update(self.backend.error)
         elif hasattr(self.backend, 'graph') and self.backend.graph != self.graph:
             self.refresh_audio()
-        for widget in self.query('#controls Button, #controls Input, #controls Select'):
+        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider'):
             widget.disabled = not self.backend.controls_available
         if not isinstance(self.screen, ColorPicker) and not isinstance(self.focused, Input):
             try:
@@ -285,7 +334,7 @@ class Dashboard(App):
             f"● LIVE   {d.get('scene', '?').upper()}  · {d.get('brightness_percent', '?')}%",
             style=(self.current_theme.warning or '#ffbf69') if stale else
                   (self.current_theme.success or '#6ee7c4')))
-        mode = ('No signal data' if stale else 'Workshop' if d.get('scene') == 'workshop'
+        mode = ('No signal data' if stale else 'Steady white' if d.get('scene') == 'workshop'
                 else 'Quiet → standby' if d.get('mode') == 'quiet'
                 else 'Reactive' if d.get('mode') == 'sound' else 'Standby')
         self.query_one('#mode', Static).update(mode)
@@ -301,10 +350,14 @@ class Dashboard(App):
         if d.get('mode') in ('sound', 'quiet') and d.get('behavior') == 'auto' and not stale:
             timing = f'Standby in {max(0, quiet - (age or 0)):.0f}s'
         self.query_one('#capture', Static).update('Capture —' if stale else
-            f"Capture {d.get('audio', '?')} · {d.get('sample_rate', 48000) // 1000} kHz mono\n"
+            f"Capture {d.get('audio', '?')} · {d.get('sample_rate', 48000) / 1000:g} kHz · {d.get('sample_bits', 16)}-bit mono\n"
             f"{timing} · glow {d.get('output_gain_percent', 100)}%\n"
             f"Retries {d.get('capture_retries', 0)} · windows {d.get('audio_blocks', 0):,}\n"
             f"Peak {d.get('peak', 0):.3f} · clipped {d.get('clipped_blocks', 0)}")
+        window, request = d.get('analysis_window_ms'), d.get('capture_requested_ms')
+        self.query_one('#timing', Static).update('Timing —' if stale else
+            f"Window {window:g} ms · request {request:g} ms\nLatency · end-to-end unmeasured"
+            if window is not None and request is not None else 'Latency · end-to-end unmeasured')
         frame_age = d.get('audio_age_seconds')
         age_text = 'no frames yet' if frame_age is None else f'frame {frame_age}s'
         self.query_one('#runtime', Static).update('Engine —' if stale else

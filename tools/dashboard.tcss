@@ -32,6 +32,7 @@ ProgressBar .bar--bar { color: $sound-border; }
 #wave .sparkline--min-color { color: $secondary; }
 #wave .sparkline--max-color { color: $accent; }
 .muted { color: $text-muted; height: auto; }
+#timing { height: auto; color: $text-muted; }
 #capture { margin-top: 1; height: auto; }
 #route { height: auto; }
 #runtime { color: $text-muted; height: auto; }
