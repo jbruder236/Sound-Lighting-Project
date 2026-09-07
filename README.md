@@ -29,6 +29,8 @@ ssh -t rpi4 'sudo lights tui'
 
 Closing the dashboard leaves the lights running. [Dashboard guide →](docs/dashboard.md)
 
+![Sound Lighting dashboard on the Pi](docs/images/dashboard.png)
+
 Want it to run whenever the Pi is powered? [Install boot startup](docs/installation.md).
 
 ```sh

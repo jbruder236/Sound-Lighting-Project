@@ -4,6 +4,8 @@ The `TUI` branch adds a terminal remote to the existing light service. One proce
 still owns GPIO. Opening a dashboard starts no recorder, changing a control needs
 no restart, and closing it leaves the lights on.
 
+![Live dashboard on the Pi](images/dashboard.png)
+
 ## Open it
 
 On this Omarchy laptop:
@@ -30,6 +32,8 @@ constant utility-light option. The terminal swatch is an approximation of the LE
 Saved settings apply within a second and fade smoothly. The top strip shows what
 the engine has actually applied; form fields are loaded when the dashboard opens
 and after its own changes. CLI changes appear in live status too.
+
+![Separate color-picker dialog](images/color-picker.png)
 
 ## Read the room
 
