@@ -1,0 +1,3 @@
+# Verified with system Python 3.13.5 on Raspberry Pi OS.
+numpy==2.2.4
+rpi_ws281x==5.0.0
