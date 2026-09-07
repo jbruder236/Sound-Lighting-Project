@@ -20,7 +20,7 @@ cd /home/pi/Sound-Lighting-Project
 sudo bash install/install.sh
 ```
 
-The installer checks Python and audio dependencies, backs up files it replaces,
+The installer checks dependencies, runs the test suite, validates existing settings, backs up files it replaces,
 stops the old lighting process, and installs:
 
 | Installed item | Purpose |
@@ -28,6 +28,8 @@ stops the old lighting process, and installs:
 | `/etc/systemd/system/addy-bluetooth.service` | Starts continuous lighting at boot; restarts after unexpected failure. |
 | `~pi/.config/pipewire/pipewire.conf.d/30-lighting-audio.conf` | Creates `lighting_audio`, a virtual sink independent of USB/HDMI devices. |
 | `~pi/.config/wireplumber/wireplumber.conf.d/51-lighting-bluetooth.conf` | Enables headless A2DP receiving and routes Bluetooth playback to the virtual sink. |
+| `/etc/sound-lighting.json` | Saved scene, brightness, behavior, timeout, and threshold; preserved on reinstall. |
+| `/usr/local/bin/lights` | Live control and status command. |
 | `loginctl enable-linger pi` | Starts and retains the Pi user's audio services without a desktop login. |
 
 It enables Bluetooth and Pi user audio services, restarts audio, and enables the
@@ -69,7 +71,8 @@ Keep the AUX speaker connected. After pairing, run on the laptop:
 python3 tools/connect_garage_audio.py --pi-address YOUR_PI_BLUETOOTH_ADDRESS
 ```
 
-This restores AUX plus Bluetooth output. Re-run after a laptop audio restart or
+This restores AUX plus Bluetooth output. Add `--watch` for automatic repair, or
+install the user service described in [operations](operations.md). Otherwise re-run after a laptop audio restart or
 if the link does not reconnect following a Pi reboot. The lights do not depend on
 this reconnect succeeding: they remain in idle mode until sound actually arrives.
 The Pi records `lighting_audio`; the USB card is no longer required.
@@ -99,19 +102,21 @@ To restore startup:
 sudo systemctl enable --now addy-bluetooth.service
 ```
 
-## Tune the timeout or brightness
+## Tune without restarting
 
-Create a service override with `sudo systemctl edit addy-bluetooth.service`:
-
-```ini
-[Service]
-ExecStart=
-ExecStart=/usr/bin/python3 -u /home/pi/Sound-Lighting-Project/RpiLightStripCodes/addy_bluetooth.py --seconds 0 --quiet-seconds 15 --threshold 0.003 --brightness 255 --target lighting_audio
+```sh
+sudo lights scene rainbow
+sudo lights brightness 80
+sudo lights quiet 15
+sudo lights threshold 0.003
+lights status
 ```
 
-Then run `sudo systemctl daemon-reload` and `sudo systemctl restart addy-bluetooth`.
-Adjust values to taste. `--brightness` is a ceiling, not a power/current limit.
-For a manual LED test, stop the service first; never run two GPIO drivers together.
+Settings are validated, written atomically, and applied live from
+`/etc/sound-lighting.json`. Do not add a second process or a service override for
+these everyday controls. For different hardware count or capture target, update
+the service deliberately. See [operations](operations.md) for scenes, recovery,
+laptop reconnect automation, and upgrade/rollback instructions.
 
 ## Remove the startup setup
 
@@ -120,6 +125,8 @@ and the two specifically named user audio configuration files above, then run
 `sudo systemctl daemon-reload` and restart the Pi user's audio services. Restore
 previous files from the installer backup if they existed. If lingering was
 previously off and nothing else needs it, run `sudo loginctl disable-linger pi`.
+Remove `/usr/local/bin/lights` if no longer needed. Preserve or remove
+`/etc/sound-lighting.json` according to whether you want to keep your preferences.
 Pairing records and other audio settings are retained.
 
 ## Validation

@@ -1,5 +1,39 @@
 # Version notes
 
+## 1.0.0 · 2026-09-07
+
+### Features
+
+- Three scenes: saturated Rainbow, drifting Aurora, and steady warm-white Workshop.
+- `lights` CLI: scene, brightness, auto/idle mode, timeout, threshold, and live status.
+- Validated settings persist across reboot and apply without restarting the driver.
+- Smooth crossfades between scenes and brightness settings.
+- Health status includes input availability, RMS, scene, mode, and settings errors.
+- Optional laptop service keeps the paired AUX/Bluetooth audio route repaired.
+- Upgrade preflight checks, configuration backups, and a documented rollback path.
+
+### Fixes
+
+- Rebuild stale combined audio routes when the Pi's Bluetooth endpoint changes.
+- Select the music profile when a paired link returns without its playback sink.
+- Invalid live settings keep the last good values; missing/restored settings recover.
+- Installer refuses to ignore a failed service stop or overwrite an unrelated command.
+- Installer preserves existing scene/brightness preferences.
+
+### Verified for this release
+
+- All 16 automated tests on the Pi, including settings rejection and recorder death/retry.
+- Live scene and brightness changes with no lighting-process restart.
+- Actual reboot: saved scene restored and laptop audio reconnected automatically.
+- Live recorder termination: capture recovered while the same lighting PID stayed up.
+
+### Supported scope
+
+- The documented Pi 4, user `pi` / UID 1000, GBR WS2811 installation and PipeWire laptop.
+- No claim of Bluetooth/AUX latency calibration, automatic current limiting, or
+  multi-day endurance validation. Other hardware and layouts require adaptation.
+
+
 ## 0.2.0 · 2026-09-07
 
 ### Features
