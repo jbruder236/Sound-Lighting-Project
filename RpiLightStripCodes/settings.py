@@ -6,10 +6,10 @@ import os
 from pathlib import Path
 import tempfile
 
-VERSION = '1.0.0'
+VERSION = '1.1.0-dev'
 CONFIG_PATH = '/etc/sound-lighting.json'
 STATUS_PATH = '/run/sound-lighting/status.json'
-SCENES = ('rainbow', 'aurora', 'workshop')
+SCENES = ('rainbow', 'aurora', 'workshop', 'custom')
 
 
 @dataclass(frozen=True)
@@ -19,6 +19,7 @@ class Settings:
     behavior: str = 'auto'
     quiet_seconds: float = 15
     threshold: float = 0.003
+    color: str = '#ff9646'
 
     @classmethod
     def parse(cls, values):
@@ -29,7 +30,12 @@ class Settings:
             raise ValueError('Unknown settings: ' + ', '.join(sorted(unknown)))
         merged = asdict(cls()) | values
         if merged['scene'] not in SCENES:
-            raise ValueError('scene must be rainbow, aurora, or workshop')
+            raise ValueError('scene must be one of: ' + ', '.join(SCENES))
+        color = merged['color']
+        if (not isinstance(color, str) or len(color) != 7 or color[0] != '#'
+                or any(c not in '0123456789abcdefABCDEF' for c in color[1:])):
+            raise ValueError('color must be a six-digit hex color, e.g. #ff9646')
+        merged['color'] = color.lower()
         if merged['behavior'] not in ('auto', 'idle'):
             raise ValueError('behavior must be auto or idle')
         if type(merged['brightness']) is not int or not 0 <= merged['brightness'] <= 255:

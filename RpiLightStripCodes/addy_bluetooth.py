@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from settings import VERSION, Settings, SettingsWatcher, atomic_json, read_settings
+from settings import VERSION, SCENES, Settings, SettingsWatcher, atomic_json, read_settings
 
 TARGET = 'lighting_audio'
 RATE, CHUNK = 48000, 1024
@@ -46,7 +46,7 @@ class LightState:
         self.mix += (target - self.mix) * (1 - math.exp(-dt / 1.2))
 
 
-def frame(count, elapsed, state, scene='rainbow'):
+def frame(count, elapsed, state, scene='rainbow', color='#ff9646'):
     """Keep the approved saturated palette; crossfade only motion and glow."""
     if scene == 'workshop':
         return [(255, 205, 145)] * count
@@ -63,7 +63,10 @@ def frame(count, elapsed, state, scene='rainbow'):
         idle_wave = 0.5 + 0.5 * math.sin(position * math.tau - elapsed / 7)
         idle_value = 0.76 + 0.18 * idle_wave
         value = idle_value * (1 - state.mix) + sound_value * state.mix
-        rgb = colorsys.hsv_to_rgb(hue, 1.0, value)
+        if scene == 'custom':
+            rgb = tuple(int(color[j:j + 2], 16) / 255 * value for j in (1, 3, 5))
+        else:
+            rgb = colorsys.hsv_to_rgb(hue, 1.0, value)
         pixels.append(tuple(round(c * 255) for c in rgb))
     return pixels
 
@@ -86,6 +89,8 @@ class AudioReader:
         self.data = bytearray()
         self.next_retry = self.last_frame = self.rms = self.peak = 0.0
         self.blocks = 0
+        self.attempts = self.clipped_blocks = 0
+        self.last_sample = None
 
     def disconnect(self):
         if self.process is not None:
@@ -107,6 +112,7 @@ class AudioReader:
             if now < self.next_retry:
                 return 0.0
             self.next_retry = now + 5
+            self.attempts += 1
             try:
                 self.process = subprocess.Popen(self.command, stdout=subprocess.PIPE,
                                                 stderr=subprocess.DEVNULL,
@@ -142,8 +148,10 @@ class AudioReader:
             del self.data[:complete * CHUNK * 2]
             self.rms = float(np.sqrt(np.mean(samples * samples)))
             self.peak = max(self.peak, float(np.max(np.abs(samples))))
+            self.clipped_blocks += int(np.max(np.abs(samples)) >= 0.999)
             self.blocks += 1
             self.last_frame = now
+            self.last_sample = now
         if now - self.last_frame > 3:
             self.disconnect()
             self.next_retry = now + 5
@@ -158,13 +166,24 @@ class AudioReader:
         finally:
             self.selector.close()
 
+    def status(self, now):
+        age = None if self.last_sample is None else max(0, now - self.last_sample)
+        return {
+            'audio': 'receiving' if self.process is not None and age is not None and age < 0.3 else 'waiting',
+            'audio_blocks': self.blocks, 'capture_retries': max(0, self.attempts - 1),
+            'peak': round(self.peak, 5), 'clipped_blocks': self.clipped_blocks,
+            'audio_age_seconds': None if age is None else round(age, 2),
+            'recorder_pid': self.process.pid if self.process is not None else None,
+            'sample_rate': RATE,
+        }
+
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--version', action='version', version=VERSION)
     ap.add_argument('--config', help='Validated settings JSON; reloaded once per second')
     ap.add_argument('--status-file', help='Write live health JSON here once per second')
-    ap.add_argument('--scene', choices=['rainbow', 'aurora', 'workshop'], default='rainbow')
+    ap.add_argument('--scene', choices=SCENES, default='rainbow')
     ap.add_argument('--seconds', type=float, default=10, help='0 means continuous')
     ap.add_argument('--count', type=int, default=100)
     ap.add_argument('--brightness', type=int, default=255)
@@ -236,7 +255,7 @@ def main():
             if state.mode != previous_mode:
                 print(f'Mode: {state.mode} (RMS={rms:.4f}).', flush=True)
             if strip is not None:
-                desired = np.array(frame(args.count, now - start, state, config.scene), dtype=float)
+                desired = np.array(frame(args.count, now - start, state, config.scene, config.color), dtype=float)
                 if previous_pixels is None:
                     previous_pixels = desired
                 else:
@@ -247,14 +266,16 @@ def main():
                     strip.setPixelColor(i, Color(*(round(c) for c in rgb)))
                 strip.show()
             if args.status_file and now >= next_status:
-                audio = ('receiving' if reader.blocks and reader.process is not None and now - reader.last_frame < 0.3 else 'waiting')
                 try:
                     atomic_json(args.status_file, {
+                        **reader.status(now),
                         'version': VERSION, 'state': 'running', 'updated_at': time.time(),
+                        'pid': os.getpid(), 'target': args.target,
                         'uptime_seconds': round(now - start, 1), 'scene': config.scene,
                         'brightness_percent': round(config.brightness / 255 * 100),
-                        'mode': state.mode, 'behavior': config.behavior, 'audio': audio,
-                        'rms': round(rms, 5), 'audio_blocks': reader.blocks,
+                        'mode': state.mode, 'behavior': config.behavior, 'color': config.color,
+                        'rms': round(rms, 5),
+                        'sound_age_seconds': None if state.last_sound is None else round(now - state.last_sound, 1),
                         'quiet_seconds': config.quiet_seconds,
                         'settings_error': watcher.error,
                     })

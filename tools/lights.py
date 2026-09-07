@@ -22,6 +22,8 @@ def main():
     commands.add_parser('config', help='Show saved settings')
     scene = commands.add_parser('scene', help='Crossfade to a scene')
     scene.add_argument('value', choices=SCENES)
+    color = commands.add_parser('color', help='Set a hex color and crossfade to the custom scene')
+    color.add_argument('value')
     brightness = commands.add_parser('brightness', help='Set brightness percentage (0..100)')
     brightness.add_argument('value', type=int)
     behavior = commands.add_parser('mode', help='Automatic sound reaction, or idle animation only')
@@ -53,6 +55,8 @@ def main():
             if not 0 <= args.value <= 100:
                 parser.error('Brightness must be 0..100 percent')
             values['brightness'] = round(args.value * 255 / 100)
+        elif args.command == 'color':
+            values.update(color=args.value, scene='custom')
         else:
             key = {'scene': 'scene', 'mode': 'behavior', 'quiet': 'quiet_seconds', 'threshold': 'threshold'}[args.command]
             values[key] = args.value

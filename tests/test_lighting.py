@@ -71,6 +71,14 @@ class ModeTests(unittest.TestCase):
 
 
 class SceneTests(unittest.TestCase):
+    def test_custom_color_keeps_hue_and_moves(self):
+        state = lighting.LightState(0)
+        a = lighting.frame(100, 0, state, 'custom', '#ff0080')
+        b = lighting.frame(100, 15, state, 'custom', '#ff0080')
+        self.assertNotEqual(a, b)
+        self.assertTrue(all(g == 0 and 0 < blue < r <= 255 for r, g, blue in a + b))
+        self.assertEqual(lighting.frame(2, 0, state, 'custom', '#000000'), [(0, 0, 0)] * 2)
+
     def test_workshop_is_steady_regardless_of_audio(self):
         state = lighting.LightState(0)
         first = lighting.frame(100, 0, state, 'workshop')

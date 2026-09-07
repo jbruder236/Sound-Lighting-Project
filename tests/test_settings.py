@@ -17,6 +17,13 @@ class SettingsTests(unittest.TestCase):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Settings.parse(values)
 
+    def test_custom_color_validation_and_old_config_defaults(self):
+        self.assertEqual(Settings.parse({}).color, '#ff9646')
+        self.assertEqual(Settings.parse({'color': '#ABCDEF'}).color, '#abcdef')
+        for value in ('red', '#fff', '#gg0000', '#00000000', 123, None):
+            with self.subTest(color=value), self.assertRaises(ValueError):
+                Settings.parse({'color': value})
+
     def test_bad_update_keeps_last_good_and_recovers(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'settings.json'
