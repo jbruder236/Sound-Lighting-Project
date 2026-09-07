@@ -74,7 +74,9 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             # A separate CLI writer changed the timeout; the UI must preserve it.
             self.backend.save(quiet_seconds=30)
             app.query_one('#brightness', Input).value = '70'
+            app.refresh_status()  # External telemetry must not discard a typed draft.
             await pilot.click('#set-brightness')
+            await pilot.pause()
             self.assertEqual(self.backend.settings().brightness, 178)
             self.assertEqual(self.backend.settings().quiet_seconds, 30)
             app.query_one('#brightness', Input).value = '101'
@@ -99,6 +101,7 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self.backend.settings().color, '#00ddff')
             self.assertEqual(self.backend.settings().scene, 'custom')
             app.action_idle()
+            await pilot.pause()
             self.assertEqual(self.backend.settings().behavior, 'idle')
 
     async def test_readonly_and_offline_at_small_size(self):
@@ -109,6 +112,7 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertTrue(app.query_one('#scene').disabled)
             app.action_idle()
+            await pilot.pause()
             self.assertEqual(self.backend.settings().behavior, 'auto')
             self.assertIn('OFFLINE', str(app.query_one('#health', Static).render()))
 

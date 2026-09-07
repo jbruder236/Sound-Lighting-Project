@@ -18,6 +18,17 @@ class Backend:
         self.config, self.status_path = Path(config), Path(status)
         self.audio_user, self.readonly = audio_user, readonly
 
+    @property
+    def controls_available(self):
+        return not self.readonly
+
+    @property
+    def connection_text(self):
+        return 'On this Pi · live updates every second'
+
+    async def apply(self, **changes):
+        return self.save(**changes)
+
     def settings(self):
         return read_settings(self.config)
 

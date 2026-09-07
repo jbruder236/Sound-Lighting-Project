@@ -3,12 +3,15 @@
 import argparse
 from collections import deque
 import math
+from pathlib import Path
+import tomllib
 
 from rich.text import Text
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
+from textual.theme import Theme
 from textual.widgets import Button, Footer, Input, Label, ProgressBar, Select, Sparkline, Static
 
 from dashboard_data import Backend
@@ -81,6 +84,8 @@ class Dashboard(App):
     def __init__(self, backend=None):
         super().__init__()
         self.backend = backend or Backend()
+        self.displayed = None
+        self.load_omarchy_theme()
         self.history = deque([0.0] * 60, maxlen=60)
         self.data = {}
         self.graph = {}
@@ -89,10 +94,24 @@ class Dashboard(App):
         except (OSError, ValueError):
             self.initial = Settings()
 
+    def load_omarchy_theme(self):
+        path = Path.home() / '.local/state/omarchy/current/theme/colors.toml'
+        try:
+            colors = tomllib.loads(path.read_text())
+            self.register_theme(Theme(name='omarchy', primary=colors['accent'],
+                secondary=colors['cyan'], accent=colors['accent'], background=colors['background'],
+                foreground=colors['foreground'], surface=colors['lighter_background'],
+                panel=colors['dark_background'], warning=colors['yellow'], success=colors['green'],
+                error=colors['red'], dark=colors.get('mode') != 'light'))
+            self.theme = 'omarchy'
+        except (OSError, ValueError, KeyError):
+            self.theme = 'textual-dark'
+
     def compose(self) -> ComposeResult:
         with VerticalScroll(id='page'):
             yield Static('S O U N D   L I G H T I N G', id='brand')
             yield Static(f'The garage, in good light.  /  {VERSION} · TUI', id='subtitle')
+            yield Static(self.backend.connection_text, id='link', markup=False)
             yield Static('Connecting to the light engine…', id='health')
             with Horizontal(id='panels'):
                 with Vertical(id='controls', classes='panel'):
@@ -128,6 +147,8 @@ class Dashboard(App):
         yield Footer()
 
     def on_mount(self):
+        if hasattr(self.backend, 'run'):
+            self.run_worker(self.backend.run(), name='Pi connection')
         self.sync_controls()
         self.refresh_status()
         self.refresh_audio()
@@ -138,28 +159,34 @@ class Dashboard(App):
     def on_resize(self, event):
         self.query_one('#panels').set_class(event.size.width < 90, 'narrow')
 
-    def sync_controls(self):
+    def sync_controls(self, keep_draft=False):
         try:
             config = self.backend.settings()
         except (OSError, ValueError) as error:
             self.message(str(error))
             return
+        brightness_input = self.query_one('#brightness', Input)
+        old_value = str(round(self.displayed.brightness / 255 * 100)) if self.displayed else None
+        dirty = brightness_input.value != old_value
+        self.displayed = config
         for name, value in [('scene', config.scene), ('behavior', config.behavior)]:
             widget = self.query_one('#' + name, Select)
             with widget.prevent(Select.Changed):
                 widget.value = value
-        self.query_one('#brightness', Input).value = str(round(config.brightness / 255 * 100))
+        if not keep_draft or not dirty:
+            brightness_input.value = str(round(config.brightness / 255 * 100))
         for widget in self.query('#controls Button, #controls Input, #controls Select'):
-            widget.disabled = self.backend.readonly
+            widget.disabled = not self.backend.controls_available
         if self.backend.readonly:
             self.message('Read-only · launch sudo lights tui to change settings.')
 
     def message(self, text):
         self.query_one('#saved', Static).update(text)
 
-    def save(self, **values):
+    @work(group='controls')
+    async def save(self, **values):
         try:
-            self.backend.save(**values)
+            await self.backend.apply(**values)
         except (OSError, ValueError) as error:
             self.message(str(error))
             return
@@ -208,7 +235,7 @@ class Dashboard(App):
             self.save(behavior='idle')
 
     def action_color(self):
-        if self.backend.readonly or isinstance(self.screen, ColorPicker):
+        if not self.backend.controls_available or isinstance(self.screen, ColorPicker):
             return
         try:
             color = self.backend.settings().color
@@ -224,11 +251,21 @@ class Dashboard(App):
     def refresh_status(self):
         self.data = d = self.backend.status()
         stale = d['stale']
+        self.query_one('#link', Static).update(self.backend.connection_text)
+        for widget in self.query('#controls Button, #controls Input, #controls Select'):
+            widget.disabled = not self.backend.controls_available
+        if not isinstance(self.screen, ColorPicker) and not isinstance(self.focused, Input):
+            try:
+                if self.backend.settings() != self.displayed:
+                    self.sync_controls(keep_draft=True)
+            except (OSError, ValueError):
+                pass
         self.query_one('#health', Static).update(Text(
-            '● ENGINE OFFLINE / STALE · saved controls apply when it returns' if stale else
+            '● ENGINE OFFLINE / STALE · waiting for live telemetry' if stale else
             f"● LIVE   {d.get('scene', '?').upper()}  /  {d.get('brightness_percent', '?')}% brightness",
-            style='#ffbf69' if stale else '#6ee7c4'))
+            style='yellow' if stale else 'green'))
         mode = ('TELEMETRY UNAVAILABLE' if stale else 'WORKSHOP · steady light' if d.get('scene') == 'workshop'
+                else 'QUIET · dimmed, standby soon' if d.get('mode') == 'quiet'
                 else 'SOUND REACTIVE' if d.get('mode') == 'sound' else 'SCREENSAVER · slow color')
         self.query_one('#mode', Static).update(mode)
         rms = 0 if stale else d.get('rms', 0)
@@ -238,13 +275,13 @@ class Dashboard(App):
         self.history.append(rms)
         self.query_one('#wave', Sparkline).data = list(self.history)
         age = d.get('sound_age_seconds')
-        quiet = d.get('quiet_seconds', 15)
+        quiet = d.get('quiet_seconds', 4)
         timing = ('Waiting for sound' if age is None else f'Last sound {age:.0f}s ago')
-        if d.get('mode') == 'sound' and d.get('behavior') == 'auto' and not stale:
+        if d.get('mode') in ('sound', 'quiet') and d.get('behavior') == 'auto' and not stale:
             timing = f'Screensaver in {max(0, quiet - (age or 0)):.0f}s of quiet'
         self.query_one('#capture', Static).update('Capture health unavailable' if stale else
             f"Capture {d.get('audio', '?')} · {d.get('sample_rate', 48000) // 1000} kHz mono\n"
-            f"{timing} · timeout {quiet:g}s\n"
+            f"{timing} · glow {d.get('output_gain_percent', 100)}%\n"
             f"Retries {d.get('capture_retries', 0)} · analyzed windows {d.get('audio_blocks', 0):,}\n"
             f"Peak {d.get('peak', 0):.3f} · clipped windows {d.get('clipped_blocks', 0)}")
         frame_age = d.get('audio_age_seconds')
@@ -275,8 +312,15 @@ def main():
     parser.add_argument('--status-file', default='/run/sound-lighting/status.json')
     parser.add_argument('--audio-user', default='pi')
     parser.add_argument('--read-only', action='store_true')
+    parser.add_argument('--host', help='Run locally and reconnect to this Pi SSH alias automatically')
+    parser.add_argument('--remote-repo', default='/home/pi/Sound-Lighting-Project')
     args = parser.parse_args()
-    Dashboard(Backend(args.config, args.status_file, args.audio_user, args.read_only)).run()
+    if args.host:
+        from remote_backend import RemoteBackend
+        backend = RemoteBackend(args.host, args.remote_repo, args.read_only)
+    else:
+        backend = Backend(args.config, args.status_file, args.audio_user, args.read_only)
+    Dashboard(backend).run()
 
 
 if __name__ == '__main__':
