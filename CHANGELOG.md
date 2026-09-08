@@ -2,6 +2,19 @@
 
 ## Experimental · feature/spectral-color
 
+**Warble:** Flow’s balanced musical colors with gentle ripples from the center of
+each physical strip. Tone shapes ripple speed; shading stays within 18% and
+master brightness still caps output. Quiet dimming and standby remain automatic.
+
+**One-click effects:** Palette / Flow / Warble / Punch sit together above the
+colorway. Mode remains Standby / Sound / Auto. Punch intensity lives beside its
+selection; warm/cool appears for White. Live music sits beside the controls in
+wide windows, with clear effect names in the status line.
+
+**Bouncier meters:** Fresh FFT features stream to the dashboard at up to 20 Hz,
+independently of the 5 Hz engine status. Fast attack, short release, fractional
+blocks, subtle ridges, and falling peaks keep a crisp terminal feel. No extra Pi FFT.
+
 **Sound graph:** Five updates per second and a 12-second scrolling window.
 A fixed dB scale, 32 vertical steps, averaged narrow buckets, and subtle ridges
 make movement finer without rescaling the whole graph when one peak arrives.

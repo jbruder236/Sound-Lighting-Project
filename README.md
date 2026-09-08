@@ -16,10 +16,10 @@ Laptop audio ────────────┤
 
 **Experimental:** [Frequency-driven color](docs/spectrum.md) on `feature/spectral-color`.
 A laptop FFT gives bass, mids, and highs their own colors; the Pi keeps its quiet
-and standby behavior. Choose **Frequency + Auto** in the dashboard. A dedicated pane shows the frequency
+and standby behavior. Choose **Warble + Auto** in the dashboard. A dedicated pane shows the frequency
 balance and outgoing colors; palette options have swatches. Standby, Sound, and
-Auto are visible buttons. Choose **Flow** for gentle ribbons or **Punch** for fast,
-vivid musical contrast. Auto uses a **10-second** quiet window.
+Auto are visible buttons. The **Effect** row puts **Flow**, **Warble**, and **Punch** one click away: smooth musical color,
+gentle center-out ripples, or adjustable contrast. Auto uses a **10-second** quiet window.
 Adding another span? See the [dual-strip setup](docs/second-strip.md).
 
 ## Light it up

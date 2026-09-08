@@ -31,26 +31,26 @@ agent; the light service and laptop audio helper keep running.
 
 On the Pi: `sudo lights tui` still works after `bash install/install-tui.sh`.
 For observation only on the laptop: `sound-lighting --read-only`.
-Use a terminal around **100 columns × 32 rows** for the full view. Narrower windows
+Use a terminal around **100 columns × 52 rows** for the full view. The music pane sits beside the controls. Narrower windows
 stack the panels; scroll or Tab to reach the remaining controls. The app tiles,
 resizes, and moves between workspaces normally; it no longer forces a floating size.
 
 | Control | What happens |
 | --- | --- |
 | Mode / S / R / A | Standby keeps the selected palette; Sound stays reactive and dims while quiet; Auto returns to standby after 10 seconds without detected audio. |
-| Color follows / F | Palette holds the selected colorway; Frequency opens the spectrum pane and lets musical bands choose colors during sound. |
-| Palette | Every option shows colored swatches. With Frequency selected, this is the standby/fallback palette. |
+| Effect / F | Palette uses your colorway; Flow (F), Warble, and Punch choose musical colors in one click. Warble adds gentle center-out ripples. Punch exposes its intensity slider beside the effect buttons. |
+| Palette | Every option shows colored swatches. With a musical effect selected, this is the standby/fallback palette. |
 | Brightness | Drag for live updates; Shift-drag is finer. Arrows change 1%, PgUp/PgDn 10%, Home/End reach the limits. Exact entry + Enter or Apply % also works. Zero stays dark, including after reboot. |
-| Punch · gentle ↔ vivid | Shown in Frequency → Punch. 0 is gentle, 50 is the balanced tuning, 100 is most vivid; fast attack stays constant. |
-| White · warm ↔ cool | Drag or use arrow keys to select steady White and adjust its tint. 0 is warm, 100 cool; 50 preserves the original Workshop white. |
+| Punch · gentle ↔ vivid | Shown beside Effect → Punch. 0 is gentle, 50 is the balanced tuning, 100 is most vivid; fast attack stays constant. |
+| White · warm ↔ cool | Choose Palette → White, then drag or use arrow keys to adjust its tint. 0 is warm, 100 cool; 50 preserves the original Workshop white. |
 | Color / C | A separate dialog with a hex field, live swatch, and eight presets. Apply selects Custom. Cancel or Escape changes nothing. |
 | Q | Close only the dashboard. |
 
-Frequency selection appears as a dedicated pane with colored band shares and Hz
+Musical effects open a dedicated live pane with colored band shares and Hz
 ranges, a strip preview, and a short explanation of what controls the output.
 The preview samples the Pi’s smoothed RGB commands after master brightness; it
-is not a measurement of the physical LEDs. Swatches are approximate. Frequency
-telemetry updates up to five times per second; narrow windows use horizontal
+is not a measurement of the physical LEDs. Swatches are approximate. Band
+telemetry arrives over SSH at up to 20 Hz; the RGB preview updates at 5 Hz; narrow windows use horizontal
 meters. Missing/stale data clears the visualization.
 
 The custom scene uses the existing slow waves and gentle sound response. It holds
@@ -87,7 +87,7 @@ hover/focus highlighting, and a warm/cool track make controls easier to read. CL
   The **20 ms request** is the recorder’s PipeWire buffer latency setting, not a
   measured transport delay ([PipeWire reference](https://docs.pipewire.org/1.4/page_man_pw-cat_1.html)).
   End-to-end latency explicitly reads **unmeasured**. Bluetooth buffering, a
-  30 Hz render loop, and intentional smoothing add delay; these components cannot
+  30/60 Hz render loop, and intentional smoothing add delay; these components cannot
   simply be summed into an accurate total. Measuring the AUX/light offset requires
   a synchronized loopback or external light/audio recording. Frame age is freshness,
   not latency.
@@ -195,3 +195,8 @@ sudo bash install/install.sh
 ```
 
 The dashboard environment can remain installed for your next visit to `TUI`.
+
+The warm/cool slider appears when **Palette → White** is selected. Musical effects
+keep the standby colorway available without showing unrelated white controls.
+The band display updates at up to 20 Hz over SSH, with crisp fractional blocks,
+short release, and falling peak marks; the sound history retains its 12-second view.

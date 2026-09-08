@@ -1,9 +1,9 @@
 # Color that listens
 
-`feature/spectral-color` builds on `TUI`. Select **Frequency** under **Color follows** in the dashboard,
+`feature/spectral-color` builds on `TUI`. Select **Flow**, **Warble**, or **Punch** in the dashboard’s **Effect** row,
 with **Auto** or **Sound** enabled, to let musical frequency balance shape the strip’s color.
-Choose **Flow** for the existing gentle look or **Punch** for faster, stronger musical contrast.
-The master brightness slider caps both styles.
+Choose **Flow** for smooth musical color, **Warble** for gentle ripples, or **Punch** for adjustable contrast.
+The master brightness slider caps every effect.
 
 ## Is it viable?
 
@@ -25,7 +25,7 @@ provides the spectrum; a Hann window reduces leakage between neighboring bins.
 These windows are separate from the Pi’s existing 21.33 ms loudness analysis.
 
 Six broad bands represent tonal balance rather than identifying notes or instruments.
-Both Flow and Punch use the same color mapping:
+Flow, Warble, and Punch use the same color mapping:
 
 | Band | Frequencies | Color |
 | --- | --- | --- |
@@ -36,11 +36,14 @@ Both Flow and Punch use the same color mapping:
 | Air | 2.5–6 kHz | Blue |
 | Shine | 6–12 kHz | Magenta |
 
-## Flow / Punch
+## Flow / Warble / Punch
 
 **Flow uses the Punch engine at a fixed 45%**, independently of the saved Punch
-slider value. **Punch** uses the adjustable amount. The controls and layout stay
-the same; Standby / Sound / Auto remain the three
+slider value. **Warble** layers a subtle ripple over that same Flow field.
+Each physical strip has its own center: waves travel toward both ends, with up
+to 18% shading and less than two addressable groups of color displacement. Bass
+slows the ripple; brighter notes quicken it. Motion glides rather than retriggering
+on every beat, and quiet input releases its depth. **Punch** uses the adjustable amount; Standby / Sound / Auto remain the three
 operating modes. **Punch** maps bass → red, body → gold, mids → green, lead → cyan,
 air → blue, and shine → magenta. Strong bands claim colored regions across the
 span. Broader overlapping regions and gentler band emphasis reduce abrupt color
@@ -50,7 +53,7 @@ without slowing the attack; there is no timed strobe.
 At the default **50% Punch**, laptop RMS controls a fast adaptive envelope
 (25 ms attack, 160 ms release), with
 stronger contrast from roughly 2.5% to 100% of the master cap. Per-pixel smoothing
-uses 35 ms on rising channels and 90 ms on falling channels, in both styles.
+uses 35 ms on rising channels and 90 ms on falling channels, in all three effects.
 These are filter time constants, **not measured end-to-end latency**. Punch renders
 at up to 60 fps; the existing FFT feed remains up to 20 Hz with 42.67 ms windows.
 No extra FFT runs on the Pi. Timing still includes capture, SSH, and Bluetooth.
@@ -74,8 +77,8 @@ delay. Adjusting Punch preserves Flow/Punch selection, operating mode, and brigh
 Quiet feature frames remain dark instead of briefly flashing the standby palette.
 Missing/expired features fade back to the selected palette; Pi audio still controls
 mute dimming and the Auto timeout. Switching styles preserves mode, palette, and
-brightness. `frequency_style` persists as `flow` or `punch`; older settings default
-to Flow. Standby remains the selected ambient palette in either style.
+brightness. `frequency_style` persists as `flow`, `warble`, or `punch`; older settings default
+to Flow. Standby remains the selected ambient palette with every effect.
 
 ## Three modes, one visible control row
 
@@ -86,15 +89,15 @@ to Flow. Standby remains the selected ambient palette in either style.
   Silence dims quickly, then the chosen standby palette returns at the timeout.
   New audio switches back immediately. `lights quiet` can customize the timeout.
 
-**Color follows: Palette / Frequency** is separate from operating mode. Frequency
-opens its own pane, showing six colored band shares and Hz ranges, the actual
-sampled Pi color commands, and whether audio or the standby palette is controlling
-output. These are up to **5 Hz snapshots** of a 20 Hz feature feed and 60 Hz
-renderer. RGB preview includes smoothing and master brightness; terminal color
-is approximate and does not measure the strip. Stale telemetry clears the preview.
+**Effect: Palette / Flow / Warble / Punch** is separate from operating mode.
+Musical effects open the live pane with six colored band shares and Hz ranges,
+sampled Pi color commands, and the active effect or standby state. Band features
+arrive at up to **20 Hz**; the RGB preview samples the 60 Hz renderer at **5 Hz**.
+It includes smoothing and master brightness; terminal color is approximate and
+does not measure the strip. Stale telemetry clears the preview.
 
 The palette picker displays a row of color swatches for every option. Picking
-another standby palette while Frequency is enabled does not disable Frequency;
+another standby palette keeps the musical effect selected;
 choosing a custom color or moving the white slider explicitly selects Palette.
 
 ![Frequency pane preview](images/spectrum.png)
@@ -167,7 +170,7 @@ and `garage_dual`). Existing endpoint customizations survive reinstallation.
 The enabled user unit starts with the laptop session and reconnects when the Pi
 returns. It does not select a scene or alter laptop routing/volume/mute.
 
-Reopen **SUPER+SPACE → Sound Lighting**, select **Frequency**, and choose **Auto**.
+Reopen **SUPER+SPACE → Sound Lighting**, select **Warble**, and choose **Auto**.
 Alternatively, on the Pi:
 
 ```sh
@@ -176,7 +179,7 @@ sudo lights mode auto
 sudo lights quiet 10
 ```
 
-Play music. The Frequency pane shows the band balance, a strip preview, local FFT duration,
+Play music. The music pane shows the band balance, a strip preview, local FFT duration,
 SSH RTT, and feature freshness. If the feed is unavailable it explicitly shows fallback.
 For logs: `journalctl --user -u sound-lighting-spectrum.service -n 30`.
 
@@ -231,3 +234,13 @@ python -m unittest discover -s tests -p test_spectrum.py
 Known tones and mixtures verify band mapping, volume/DC invariance, and silence.
 Tests also cover bad packets, clock/TTL handling, warm/cool output, idle fallback,
 expired network challenges, capture recovery, and child-process cleanup.
+
+## Live musical display
+
+The music pane sits beside the controls in a wide terminal and above the sound
+history in a narrow one. It reads fresh FFT features over SSH at up to **20 Hz**,
+independently of the engine’s 5 Hz status writer. No additional FFT or faster
+status-file writes are needed on the Pi. The bars use a fixed expanded scale,
+25 ms attack, 140 ms release, fractional block steps, subtle ridges, and falling
+peak marks. Percentages remain measured band shares; display smoothing never
+changes the LEDs. Stale input clears the bars and peak marks.
