@@ -12,7 +12,9 @@ as sound.
 
 Supported layout: user `pi`, UID `1000`, repository at
 `/home/pi/Sound-Lighting-Project`, system Python `/usr/bin/python3`.
-GPIO21 / pin 40, GBR, 100 groups; confirm wiring and supply before enabling startup.
+Default: GPIO21 / pin 40, GBR, 100 groups; confirm wiring and supply before enabling startup.
+For two strips on GPIO18 and GPIO13, follow the [dual-strip setup](second-strip.md)
+after installing the base service. Its systemd override survives reinstalling the base unit.
 The existing paired laptop remains trusted; discoverability need not be enabled.
 
 ```sh

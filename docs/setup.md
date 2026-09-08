@@ -19,13 +19,13 @@ uses **100 WS2811 ICs, each controlling six LEDs together**. The existing
 `--count 100` already addresses the full strip at its native resolution: one
 independent color every 10cm (about 4 inches). A count of 600 would not unlock
 individual control of those six LEDs. Two identical spans provide 200 independent
-groups / 1,200 physical LEDs once the second output is implemented.
+groups / 1,200 physical LEDs with dual PWM enabled.
 
 The reel label specifies **red = +24V, green = DIN, black = GND**; confirm the
 input end using the strip arrows. Rated power totals **144W / 6A at 24V per reel**,
 not a measured draw at the current animation/brightness. Each reel retains its
 own 24V supply, with common DC grounds and separate positive rails. See the
-[second-strip plan](second-strip.md).
+[dual-strip setup](second-strip.md).
 
 ```text
 Pi breakout                      3.3V → 5V logic buffer

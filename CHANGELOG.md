@@ -2,6 +2,15 @@
 
 ## Experimental · feature/spectral-color
 
+**Two strips:** GPIO18 + GPIO13, 100 addressable groups each, one continuous
+200-pixel canvas. Shared PWM driver, brightness, and shutdown cleanup. Opt-in
+setup backs up system files and reserves PWM by disabling onboard analog audio;
+Bluetooth/USB remain available. Reboot required; single-strip PCM stays the default.
+Pi core checks passed (42 tests, six optional UI tests skipped). A 10-second live
+test addressed each channel separately, exchanged colors, cleared both spans,
+and released the controller before restarting the service. Failed initialization
+never calls C hardware cleanup on an uninitialized controller.
+
 **Punch:** Flow / Punch buttons in the Frequency pane. Punch adds six vivid hues,
 strong musical contrast, 35/90 ms pixel smoothing, and up to 60 fps rendering.
 Master brightness still caps output. Quiet feature frames stay dark; Flow remains
@@ -11,9 +20,8 @@ available. Band visualization follows the selected style. No additional Pi FFT.
 10-second live Punch test saw all six bands and changing RGB output at the existing
 40% cap. Clean service shutdown cleared LEDs and released capture resources.
 
-**Wiring:** [Second-strip pin plan](docs/second-strip.md), including common grounds,
-separate positive rails, and the required move from PCM to dual PWM. The live
-single-strip GPIO21 configuration is unchanged.
+**Wiring:** [Dual-strip setup](docs/second-strip.md), including common grounds,
+separate positive rails, and the move from PCM to dual PWM.
 
 **Controls:** Visible Standby / Sound / Auto buttons and Palette / Frequency color
 selection. Auto uses ten seconds since last audio; Sound stays dim while silent.

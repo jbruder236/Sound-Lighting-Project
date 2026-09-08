@@ -2,7 +2,7 @@
 
 **A garage light with a little life in it.**
 
-Rich color rolls along a 32-foot WS2811 strip. Music gently lifts the glow.
+Rich color rolls along 32-foot WS2811 strips. Music gently lifts the glow.
 The colors take their time. The room stays lit.
 
 Built for a Raspberry Pi 4, with a Python program small enough to understand
@@ -20,7 +20,7 @@ and standby behavior. Choose **Frequency + Auto** in the dashboard. A dedicated 
 balance and outgoing colors; palette options have swatches. Standby, Sound, and
 Auto are visible buttons. Choose **Flow** for gentle ribbons or **Punch** for fast,
 vivid musical contrast. Auto uses a **10-second** quiet window.
-Adding another span? See the [second-strip wiring plan](docs/second-strip.md).
+Adding another span? See the [dual-strip setup](docs/second-strip.md).
 
 ## Light it up
 
