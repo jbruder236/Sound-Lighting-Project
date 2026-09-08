@@ -2,6 +2,15 @@
 
 ## Experimental · feature/spectral-color
 
+**Controls:** Visible Standby / Sound / Auto buttons and Palette / Frequency color
+selection. Auto uses ten seconds since last audio; Sound stays dim while silent.
+White follows mode brightness and remains steady in Standby.
+
+**Visualization:** A dedicated conditional Frequency pane, six color-coded bands,
+Hz ranges, smoothed Pi output preview, and 5 Hz telemetry. Palette dropdowns show
+color swatches. Standby uses the chosen palette. Old Spectrum scenes migrate safely.
+
+
 **Feature:** Spectrum scene; six musical frequency bands drive saturated color.
 FFT runs on Omarchy, independently of the dashboard, with a small SSH feature feed.
 

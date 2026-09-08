@@ -1,7 +1,7 @@
 # Color that listens
 
-`feature/spectral-color` builds on `TUI`. Select **Spectrum** in the dashboard,
-with **Auto** enabled, to let musical frequency balance shape the strip’s color.
+`feature/spectral-color` builds on `TUI`. Select **Frequency** under **Color follows** in the dashboard,
+with **Auto** or **Sound** enabled, to let musical frequency balance shape the strip’s color.
 Brightness and the existing gentle movement remain independent.
 
 ## Is it viable?
@@ -43,6 +43,28 @@ spread farther across it. Saturation stays high, and the existing 0.65-second
 pixel smoothing softens changes. This remains ambient lighting rather than a
 fast spectrum analyzer. DC and very quiet input do not steer the color.
 
+## Three modes, one visible control row
+
+- **Standby:** the selected palette keeps moving; White stays steady.
+- **Sound:** reacts to audio and stays in sound mode. Silence dims to the existing
+  low glow; it does not automatically return to standby.
+- **Auto:** sound heard within the last **10 seconds** keeps sound mode selected.
+  Silence dims quickly, then the chosen standby palette returns at the timeout.
+  New audio switches back immediately. `lights quiet` can customize the timeout.
+
+**Color follows: Palette / Frequency** is separate from operating mode. Frequency
+opens its own pane, showing six colored band shares and Hz ranges, the actual
+sampled Pi color commands, and whether audio or the standby palette is controlling
+output. These are up to **5 Hz snapshots** of a 20 Hz feature feed and 30 Hz
+renderer. RGB preview includes smoothing and master brightness; terminal color
+is approximate and does not measure the strip. Stale telemetry clears the preview.
+
+The palette picker displays a row of color swatches for every option. Picking
+another standby palette while Frequency is enabled does not disable Frequency;
+choosing a custom color or moving the white slider explicitly selects Palette.
+
+![Frequency pane preview](images/spectrum.png)
+
 ## The path
 
 ```text
@@ -63,12 +85,12 @@ Only one packet is in flight. Each needs a fresh receiver challenge, which expir
 after 0.5 seconds; buffered packets arriving after a stall are rejected. Received
 features expire after 0.75 seconds using the **Pi’s monotonic clock**, so laptop
 clock differences cannot make them appear fresh. Missing capture, SSH loss, or
-an absent laptop yields a smooth rainbow fallback. Capture and SSH retry after
+an absent laptop yields a smooth fallback to the selected palette. Capture and SSH retry after
 five seconds; normal shutdown terminates and reaps both children.
 
-The Pi’s local audio signal continues to decide dimming and standby. **Auto**
-allows spectral colors while sound is present; silence and forced **Standby** use
-the rainbow fallback. White and all other scenes behave as before. Changing scenes
+The Pi’s local audio signal continues to decide dimming and standby. **Auto** and **Sound**
+allow spectral colors while sound is present; standby and missing features use
+the selected palette. White stays uniform and follows mode brightness like other palettes. Changing scenes
 does not stop the optional laptop publisher; disable its service if unwanted.
 
 ## Timing is not synchronization
@@ -111,16 +133,17 @@ and `garage_dual`). Existing endpoint customizations survive reinstallation.
 The enabled user unit starts with the laptop session and reconnects when the Pi
 returns. It does not select a scene or alter laptop routing/volume/mute.
 
-Reopen **SUPER+SPACE → Sound Lighting**, select **Spectrum**, and choose **Auto**.
+Reopen **SUPER+SPACE → Sound Lighting**, select **Frequency**, and choose **Auto**.
 Alternatively, on the Pi:
 
 ```sh
-sudo lights scene spectrum
+sudo lights source spectrum
 sudo lights mode auto
+sudo lights quiet 10
 ```
 
-Play music. The sound panel shows the strongest band, local FFT duration, SSH RTT,
-and feature freshness. If the feed is unavailable it explicitly shows fallback.
+Play music. The Frequency pane shows the band balance, a strip preview, local FFT duration,
+SSH RTT, and feature freshness. If the feed is unavailable it explicitly shows fallback.
 For logs: `journalctl --user -u sound-lighting-spectrum.service -n 30`.
 
 ## Return to TUI
@@ -128,16 +151,30 @@ For logs: `journalctl --user -u sound-lighting-spectrum.service -n 30`.
 ```sh
 # Laptop
 systemctl --user disable --now sound-lighting-spectrum.service
-# Pi: choose an existing scene before switching branches.
-sudo lights scene rainbow
+# Pi: migrate settings before returning to the older TUI code.
 cd /home/pi/Sound-Lighting-Project
+sudo cp /etc/sound-lighting.json /etc/sound-lighting.frequency-backup.json
+sudo env PYTHONPATH=RpiLightStripCodes python3 - <<'PY'
+import json
+from pathlib import Path
+from settings import atomic_json
+p = Path('/etc/sound-lighting.json')
+settings = json.loads(p.read_text())
+settings.pop('color_source', None)
+if settings.get('behavior') == 'sound':
+    settings['behavior'] = 'auto'
+if settings.get('scene') == 'spectrum':
+    settings['scene'] = 'rainbow'
+atomic_json(p, settings)
+PY
 git switch TUI
 sudo systemctl restart addy-bluetooth.service
 # Laptop checkout, then reopen the app:
 git switch TUI
 ```
 
-This branch adds the `spectrum` scene but no new persistent settings fields.
+This branch adds `color_source` and the `sound` behavior. Legacy `scene: spectrum`
+settings migrate to a Rainbow standby palette with Frequency enabled.
 The expired feature file is harmless on TUI. The optional environment may remain.
 
 ## Live check on this setup

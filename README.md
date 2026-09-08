@@ -16,7 +16,9 @@ Laptop audio ────────────┤
 
 **Experimental:** [Frequency-driven color](docs/spectrum.md) on `feature/spectral-color`.
 A laptop FFT gives bass, mids, and highs their own colors; the Pi keeps its quiet
-and standby behavior. Choose **Spectrum + Auto** in the dashboard.
+and standby behavior. Choose **Frequency + Auto** in the dashboard. A dedicated pane shows the frequency
+balance and outgoing colors; palette options have swatches. Standby, Sound, and
+Auto are visible buttons. On this branch, Auto uses a **10-second** quiet window.
 
 ## Light it up
 
@@ -32,7 +34,7 @@ python3 tools/install_omarchy.py --host rpi4
 
 Closing the dashboard leaves the lights running. [Dashboard guide →](docs/dashboard.md)
 
-![Sound Lighting on Omarchy](docs/images/dashboard.png)
+![Frequency controls on Omarchy](docs/images/spectrum.png)
 
 Want it to run whenever the Pi is powered? [Install boot startup](docs/installation.md).
 

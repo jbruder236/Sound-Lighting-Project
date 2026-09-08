@@ -4,7 +4,7 @@ The `TUI` branch adds a terminal remote to the existing light service. One proce
 still owns GPIO. Opening a dashboard starts no recorder, changing a control needs
 no restart, and closing it leaves the lights on.
 
-![Dashboard preview](images/dashboard.png)
+![Frequency pane preview](images/spectrum.png)
 
 ## Open it
 
@@ -37,15 +37,23 @@ resizes, and moves between workspaces normally; it no longer forces a floating s
 
 | Control | What happens |
 | --- | --- |
-| Scene | Rainbow, Aurora, Sunset, Ocean, Ember, Candy, steady White, or Custom. The experimental branch adds [Spectrum](spectrum.md), driven by a laptop FFT. |
-| Behavior / A / S | Auto follows sound; Screensaver keeps the idle animation. Workshop stays steady. |
+| Mode / S / R / A | Standby keeps the selected palette; Sound stays reactive and dims while quiet; Auto returns to standby after 10 seconds without detected audio. |
+| Color follows / F | Palette holds the selected colorway; Frequency opens the spectrum pane and lets musical bands choose colors during sound. |
+| Palette | Every option shows colored swatches. With Frequency selected, this is the standby/fallback palette. |
 | Brightness | Drag the slider and release; arrows change 1%, PgUp/PgDn 10%, Home/End reach the limits. Exact entry + Enter or Apply % also works. Zero stays dark, including after reboot. |
 | White · warm ↔ cool | Drag or use arrow keys to select steady White and adjust its tint. 0 is warm, 100 cool; 50 preserves the original Workshop white. |
 | Color / C | A separate dialog with a hex field, live swatch, and eight presets. Apply selects Custom. Cancel or Escape changes nothing. |
 | Q | Close only the dashboard. |
 
+Frequency selection appears as a dedicated pane with colored band shares and Hz
+ranges, a strip preview, and a short explanation of what controls the output.
+The preview samples the Pi’s smoothed RGB commands after master brightness; it
+is not a measurement of the physical LEDs. Swatches are approximate. Frequency
+telemetry updates up to five times per second; narrow windows use horizontal
+meters. Missing/stale data clears the visualization.
+
 The custom scene uses the existing slow waves and gentle sound response. It holds
-the hue you picked; brightness still varies across the span. White (the `workshop` scene in the CLI) is the constant utility-light option.
+the hue you picked; brightness still varies across the span. White (the `workshop` scene in the CLI) is the constant utility-light option in Standby.
 Its slider blends RGB tints, not calibrated Kelvin temperatures. The terminal
 swatch is an approximation of the LEDs. `sudo lights white 25` also selects White.
 Saved settings apply within a second and fade smoothly. The top strip shows what
@@ -53,14 +61,16 @@ the engine has actually applied. Remote changes refresh the controls while keepi
 an unfinished brightness edit intact. Slider drags save on release; rapid keyboard
 adjustments are coalesced, with one slider write in flight. CLI changes appear in live status too.
 
+![Palette dropdown preview](images/palettes.png)
+
 ![Separate color-picker dialog](images/color-picker.png)
 
 ## Read the room
 
 - **Sound reactive / Quiet / Screensaver:** silence lasting more than 0.25 seconds
-  dims to an 8% glow multiplier in about two seconds. After the four-second quiet
+  dims to an 8% glow multiplier in about two seconds. After the ten-second quiet
   timeout, standby fades back in. Sound returns automatically at any point.
-  Workshop and forced Screensaver bypass this dim.
+  Standby bypasses this dim. Sound remains dim while silent instead of entering standby.
 - **Signal:** RMS level in dBFS, a −60 to 0 dBFS meter, and 60 seconds of relative
   history sampled once per second. Fast transients between status updates may be missed.
 - **Capture:** frames arriving, configured 48 kHz, 16-bit mono, retry count, analyzed
@@ -129,7 +139,7 @@ the `lights tui` launcher. The LED service keeps its existing system Python,
 NumPy, and WS2811 library. `python3-venv` is required to create the environment.
 
 The local UI consists of `tools/dashboard.py`, `tools/dashboard.tcss`, and
-`tools/dashboard_data.py`, plus the small `tools/slider.py` widget. It imports shared settings validation and reads the
+`tools/dashboard_data.py`, plus the small slider, palette-preview, and spectrum-pane widgets. It imports shared settings validation and reads the
 engine's status JSON. PipeWire inspection runs as `pi`, even when the dashboard
 runs under sudo, and its short-lived subprocess is reaped on timeout or exit.
 
@@ -150,7 +160,7 @@ reconnection, acknowledged writes, no offline replay, and child-process cleanup.
 
 ## Return to 1.0
 
-The `color` and `white` settings and extra scenes are specific to this branch.
+The `color`, `white`, and `color_source` settings and extra scenes are specific to this branch.
 Back up your settings and remove these fields before returning to `master`:
 
 ```sh
@@ -164,6 +174,9 @@ path = Path('/etc/sound-lighting.json')
 settings = json.loads(path.read_text())
 settings.pop('color', None)
 settings.pop('white', None)
+settings.pop('color_source', None)
+if settings.get('behavior') == 'sound':
+    settings['behavior'] = 'auto'
 if settings.get('scene') not in ('rainbow', 'aurora', 'workshop'):
     settings['scene'] = 'rainbow'
 atomic_json(path, settings)
