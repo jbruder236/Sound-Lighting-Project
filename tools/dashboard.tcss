@@ -51,3 +51,5 @@ ColorPicker { align: center middle; background: $background 80%; }
 BandChart { height: 7; }
 StripPreview { height: 1; margin-bottom: 1; }
 #source-spectrum { min-width: 11; }
+
+#punch-control { height: auto; }

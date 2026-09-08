@@ -5,6 +5,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Label, Static
 from spectrum import BANDS, HUES, PUNCH_HUES
+from slider import Slider
 
 COLORS = ['#' + ''.join(f'{round(c*255):02x}' for c in colorsys.hsv_to_rgb(h, 1, 1)) for h in HUES]
 RANGES = ('40–160', '160–400', '400–1k', '1k–2.5k', '2.5k–6k', '6k–12k')
@@ -61,6 +62,10 @@ class SpectrumPane(Vertical):
         with Horizontal(classes='row'):
             yield Button('Flow', compact=True, id='frequency-flow')
             yield Button('Punch', compact=True, id='frequency-punch')
+        with Vertical(id='punch-control'):
+            yield Label('Punch · gentle ↔ vivid')
+            yield Slider(50, id='punch-slider',
+                         tooltip='Live intensity · 50 = balanced · 100 = original Punch · fast attack at every setting')
         yield Static('', id='spectrum-control', markup=False)
         yield BandChart(id='bands')
         yield Static('Pi output · sampled commands', classes='muted')

@@ -117,6 +117,7 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(app.query_one('#brightness-slider').disabled)
             self.assertTrue(app.query_one('#white-slider').disabled)
             self.assertTrue(app.query_one('#frequency-punch').disabled)
+            self.assertTrue(app.query_one('#punch-slider').disabled)
             app.action_idle()
             await pilot.pause()
             self.assertEqual(self.backend.settings().behavior, 'auto')
@@ -133,12 +134,17 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(app.query_one('#brightness', Input).value, '27')
             self.assertEqual(app.query_one('#brightness-slider', Slider).value, 27)
 
-    async def test_sliders_drag_commit_keyboard_coalesce_and_white_scene(self):
+    async def test_sliders_live_drag_keyboard_coalesce_and_white_scene(self):
         calls = []
+        active = maximum = 0
         async def apply(**values):
+            nonlocal active, maximum
+            active += 1
+            maximum = max(maximum, active)
             calls.append(values)
             await asyncio.sleep(.1)
             self.backend.save(**values)
+            active -= 1
         self.backend.apply = apply
         app = Dashboard(self.backend)
         async with app.run_test(size=(100, 32)) as pilot:
@@ -147,10 +153,11 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             await pilot.mouse_down(slider, offset=(0, 0))
             await pilot.hover(slider, offset=(10, 0))
             await pilot.pause(.3)
-            self.assertEqual(calls, [])  # Drag is a local preview until release.
+            self.assertTrue(calls)  # Drag now reaches the engine before release.
             await pilot.mouse_up(slider, offset=(10, 0))
             await pilot.pause(.5)
-            self.assertEqual(len(calls), 1)
+            self.assertEqual(maximum, 1)
+            self.assertLessEqual(len(calls), 3)
             self.assertEqual(self.backend.settings().brightness, round(slider.value * 255 / 100))
             slider.focus()
             await pilot.press('home', 'right', 'right', 'pageup')
@@ -189,6 +196,13 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertEqual(self.backend.settings().frequency_style, 'punch')
             self.assertEqual(app.query_one('#frequency-punch', Button).variant, 'primary')
+            self.assertTrue(app.query_one('#punch-control').display)
+            app.query_one('#punch-slider').focus()
+            await pilot.press('end')
+            await pilot.pause(.4)
+            self.assertEqual(self.backend.settings().punch, 100)
+            self.assertEqual(self.backend.settings().scene, 'rainbow')
+            self.assertEqual(self.backend.settings().brightness, 255)
             self.assertEqual(self.backend.settings().behavior, 'sound')
             atomic_json(self.status, dict(updated_at=time.time(), color_source='spectrum',
                 frequency_style='punch',
@@ -213,6 +227,33 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             await pilot.click('#source-palette')
             await pilot.pause()
             self.assertFalse(app.query_one('#spectrum-pane').display)
+
+    async def test_slider_thumb_fine_drag_escape_and_disabled_capture(self):
+        self.backend.save(brightness=128)
+        app = Dashboard(self.backend)
+        async with app.run_test(size=(100, 48)) as pilot:
+            await pilot.pause()
+            slider = app.query_one('#brightness-slider', Slider)
+            thumb = round(slider.value / 100 * (slider.track_width-1))
+            await pilot.mouse_down(slider, offset=(thumb, 1), shift=True)
+            self.assertEqual(slider.value, 50)  # Grab without a jump.
+            await pilot.mouse_up(slider, offset=(thumb+5, 1), shift=True)
+            await pilot.pause(.4)
+            self.assertTrue(50 < slider.value < 55)
+            original = slider.value
+            await pilot.mouse_down(slider, offset=(0, 1))
+            await pilot.hover(slider, offset=(8, 1))
+            await pilot.pause(.4)
+            self.assertNotEqual(slider.value, original)
+            await pilot.press('escape')
+            await pilot.pause(.4)
+            self.assertFalse(slider.dragging)
+            self.assertEqual(slider.value, original)
+            self.assertEqual(self.backend.settings().brightness, round(original*255/100))
+            await pilot.mouse_down(slider, offset=(thumb, 1))
+            slider.disabled = True
+            await pilot.pause()
+            self.assertFalse(slider.dragging)
 
     async def test_remote_dashboard_exit_reaps_ssh_child(self):
         from remote_backend import RemoteBackend

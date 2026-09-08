@@ -155,9 +155,9 @@ class Dashboard(App):
                                  allow_blank=False, value=self.initial.scene, compact=True, id='scene')
                     yield Label('Brightness')
                     yield Slider(round(self.initial.brightness / 255 * 100), id='brightness-slider',
-                                 tooltip='Drag and release · arrows ±1 · PgUp/PgDn ±10 · Home/End')
+                                 tooltip='Live drag · Shift-drag fine · arrows ±1 · wheel ±2 · PgUp/PgDn ±10 · Esc cancels drag')
                     yield Label('White · warm ↔ cool')
-                    yield Slider(self.initial.white, id='white-slider',
+                    yield Slider(self.initial.white, id='white-slider', gradient=('#ff7828', '#bedcff'),
                                  tooltip='Moving this selects steady White. RGB tint, not calibrated Kelvin.')
                     with Horizontal(classes='row'):
                         yield Input(str(round(self.initial.brightness / 255 * 100)), type='integer',
@@ -226,10 +226,10 @@ class Dashboard(App):
                 widget.value = value
         if not keep_draft or not dirty:
             brightness_input.value = str(round(config.brightness / 255 * 100))
-        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider, #spectrum-pane Button'):
+        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider, #spectrum-pane Button, #spectrum-pane Slider'):
             widget.disabled = not self.backend.controls_available
         if not self.slider_pending and not self.slider_saving:
-            for name, value in [('brightness', round(config.brightness / 255 * 100)), ('white', config.white)]:
+            for name, value in [('brightness', round(config.brightness / 255 * 100)), ('white', config.white), ('punch', config.punch)]:
                 slider = self.query_one('#' + name + '-slider', Slider)
                 if not slider.dragging:
                     slider.value = value
@@ -246,6 +246,7 @@ class Dashboard(App):
             self.query_one('#frequency-' + value, Button).variant = 'primary' if config.frequency_style == value else 'default'
         self.query_one('#palette-label', Label).update('Standby palette' if config.color_source == 'spectrum' else 'Palette')
         self.query_one('#spectrum-pane').display = config.color_source == 'spectrum'
+        self.query_one('#punch-control').display = config.frequency_style == 'punch'
 
     def message(self, text):
         self.query_one('#saved', Static).update(text)
@@ -279,28 +280,39 @@ class Dashboard(App):
         if event.slider.id == 'brightness-slider':
             self.slider_pending['brightness'] = round(event.value * 255 / 100)
             self.query_one('#brightness', Input).value = str(event.value)
-        else:
+        elif event.slider.id == 'white-slider':
             self.slider_pending.update(white=event.value, scene='workshop', color_source='palette')
-        if self.slider_timer:
-            self.slider_timer.stop()
-        self.slider_timer = self.set_timer(.25, self.save_sliders)
+        elif event.slider.id == 'punch-slider':
+            self.slider_pending['punch'] = event.value
+        if event.final and not self.slider_saving:
+            if self.slider_timer:
+                self.slider_timer.stop()
+                self.slider_timer = None
+            self.save_sliders()
+        elif not self.slider_timer and not self.slider_saving:
+            self.slider_timer = self.set_timer(.12, self.save_sliders)
 
     @work(group='sliders')
     async def save_sliders(self):
-        # One in-flight write; fast keyboard changes collapse to the newest value.
-        if self.slider_saving:
+        # One acknowledged write at a time; retain only the newest drag values.
+        self.slider_timer = None
+        if self.slider_saving or not self.slider_pending:
+            return
+        if not self.backend.controls_available:
+            self.slider_pending.clear()
             return
         self.slider_saving = True
         try:
-            while self.slider_pending:
-                values, self.slider_pending = self.slider_pending, {}
-                await self.backend.apply(**values)
+            values, self.slider_pending = self.slider_pending, {}
+            await self.backend.apply(**values)
             self.message('Saved')
         except (OSError, ValueError) as error:
             self.slider_pending.clear()  # Never replay a disconnected edit later.
             self.message(str(error))
         finally:
             self.slider_saving = False
+            if self.slider_pending and self.is_running:
+                self.slider_timer = self.set_timer(.12, self.save_sliders)
             self.sync_controls()
 
     @on(Input.Submitted, '#brightness')
@@ -370,7 +382,7 @@ class Dashboard(App):
             self.query_one('#route', Static).update(self.backend.error)
         elif hasattr(self.backend, 'graph') and self.backend.graph != self.graph:
             self.refresh_audio()
-        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider, #spectrum-pane Button'):
+        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider, #spectrum-pane Button, #spectrum-pane Slider'):
             widget.disabled = not self.backend.controls_available
         if not isinstance(self.screen, ColorPicker) and not isinstance(self.focused, Input):
             try:
