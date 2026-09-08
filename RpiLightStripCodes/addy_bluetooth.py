@@ -228,7 +228,9 @@ def main():
     ap.add_argument('--status-file', help='Write live health JSON here once per second')
     ap.add_argument('--scene', choices=SCENES, default='rainbow')
     ap.add_argument('--seconds', type=float, default=10, help='0 means continuous')
-    ap.add_argument('--count', type=int, default=100)
+    ap.add_argument('--count', type=int, default=100, help='Addressable groups per strip')
+    ap.add_argument('--outputs', choices=('pcm', 'dual-pwm'), default='pcm',
+                    help='One strip on GPIO21, or two on GPIO18 and GPIO13')
     ap.add_argument('--brightness', type=int, default=255)
     ap.add_argument('--target', default=TARGET, help='PipeWire sink monitor to capture')
     ap.add_argument('--audio-user', default='pi', help='User owning the PipeWire session')
@@ -245,7 +247,8 @@ def main():
     if not 1 <= args.count <= 2000 or not 0 <= args.brightness <= 255:
         ap.error('Count must be 1..2000 and brightness 0..255')
     if not args.audio_only and os.geteuid() != 0:
-        ap.error('Use sudo for GPIO21 PCM output')
+        ap.error('Use sudo for GPIO output')
+    pixel_count = args.count * (2 if args.outputs == 'dual-pwm' else 1)
     try:
         initial = read_settings(args.config) if args.config else Settings.parse({
             'scene': args.scene, 'brightness': args.brightness,
@@ -269,8 +272,14 @@ def main():
     try:
         if not args.audio_only:
             from rpi_ws281x import PixelStrip, Color, ws
-            strip = PixelStrip(args.count, 21, 800000, 10, False,
-                              initial.brightness, 0, ws.WS2811_STRIP_GBR)
+            if args.outputs == 'dual-pwm':
+                if Path('/sys/module/snd_bcm2835').exists():
+                    raise RuntimeError('Dual PWM requires onboard analog audio disabled; reboot after configuring it')
+                from dual_pwm import DualPWMStrip
+                strip = DualPWMStrip(args.count, initial.brightness)
+            else:
+                strip = PixelStrip(args.count, 21, 800000, 10, False,
+                                  initial.brightness, 0, ws.WS2811_STRIP_GBR)
             strip.begin()
             initialized = True
         start = time.monotonic()
@@ -307,9 +316,9 @@ def main():
                                    and max(features['bands']) > 0)
             render_scene = 'spectrum' if spectral_active else config.scene
             if strip is not None:
-                pixels = (punch.frame(args.count, features, state.gain)
+                pixels = (punch.frame(pixel_count, features, state.gain)
                           if fast and features and state.mode != 'idle' else
-                          frame(args.count, now - start, state, render_scene,
+                          frame(pixel_count, now - start, state, render_scene,
                                 config.color, config.white, features))
                 desired = np.array(pixels, dtype=float)
                 previous_pixels = smooth_pixels(previous_pixels, desired, dt,
@@ -325,6 +334,8 @@ def main():
                         **reader.status(now), **spectrum_reader.status(now),
                         'version': VERSION, 'state': 'running', 'updated_at': time.time(),
                         'pid': os.getpid(), 'target': args.target,
+                        'output_gpios': [18, 13] if args.outputs == 'dual-pwm' else [21],
+                        'pixel_count': pixel_count,
                         'uptime_seconds': round(now - start, 1), 'scene': config.scene,
                         'brightness_percent': round(config.brightness / 255 * 100),
                         'mode': state.mode, 'behavior': config.behavior, 'color': config.color,
@@ -351,7 +362,7 @@ def main():
             if strip is not None:
                 try:
                     if initialized:
-                        for i in range(args.count):
+                        for i in range(pixel_count):
                             strip.setPixelColor(i, 0)
                         strip.show()
                         time.sleep(0.05)
