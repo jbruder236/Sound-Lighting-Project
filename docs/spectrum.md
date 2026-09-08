@@ -24,28 +24,23 @@ most every **50 ms**. The [NumPy real FFT](https://numpy.org/doc/stable/referenc
 provides the spectrum; a Hann window reduces leakage between neighboring bins.
 These windows are separate from the Pi’s existing 21.33 ms loudness analysis.
 
-Six broad bands handle mixed music better than assigning the loudest FFT bin a
-MIDI note. Harmonics, chords, and percussion make that bin an unreliable estimate
-of the fundamental. This mode represents tonal balance; it does not identify
-notes, instruments, key, or emotion. Colors are an artistic mapping:
+Six broad bands represent tonal balance rather than identifying notes or instruments.
+Both Flow and Punch use the same color mapping:
 
 | Band | Frequencies | Color |
 | --- | --- | --- |
-| Bass | 40–160 Hz | Amber |
-| Body | 160–400 Hz | Orange |
-| Mids | 400 Hz–1 kHz | Pink |
-| Lead | 1–2.5 kHz | Violet |
+| Bass | 40–160 Hz | Red |
+| Body | 160–400 Hz | Gold |
+| Mids | 400 Hz–1 kHz | Green |
+| Lead | 1–2.5 kHz | Cyan |
 | Air | 2.5–6 kHz | Blue |
-| Shine | 6–12 kHz | Cyan |
-
-Energy is summed per band and square-root compressed so quieter parts can share
-the palette. Broad regions of the strip favor neighboring bands; stronger bands
-spread farther across it. Saturation stays high, and the existing 0.65-second
-pixel smoothing softens changes. This describes **Flow**, the default style. DC and very quiet input do not steer the color.
+| Shine | 6–12 kHz | Magenta |
 
 ## Flow / Punch
 
-The Frequency pane has two style buttons and a **Punch** amount slider; Standby / Sound / Auto remain the three
+**Flow uses the Punch engine at a fixed 45%**, independently of the saved Punch
+slider value. **Punch** uses the adjustable amount. The controls and layout stay
+the same; Standby / Sound / Auto remain the three
 operating modes. **Punch** maps bass → red, body → gold, mids → green, lead → cyan,
 air → blue, and shine → magenta. Strong bands claim colored regions across the
 span. Broader overlapping regions and gentler band emphasis reduce abrupt color
@@ -55,7 +50,7 @@ without slowing the attack; there is no timed strobe.
 At the default **50% Punch**, laptop RMS controls a fast adaptive envelope
 (25 ms attack, 160 ms release), with
 stronger contrast from roughly 2.5% to 100% of the master cap. Per-pixel smoothing
-uses 35 ms on rising channels and 90 ms on falling channels, versus Flow's 650 ms.
+uses 35 ms on rising channels and 90 ms on falling channels, in both styles.
 These are filter time constants, **not measured end-to-end latency**. Punch renders
 at up to 60 fps; the existing FFT feed remains up to 20 Hz with 42.67 ms windows.
 No extra FFT runs on the Pi. Timing still includes capture, SSH, and Bluetooth.
@@ -94,7 +89,7 @@ to Flow. Standby remains the selected ambient palette in either style.
 **Color follows: Palette / Frequency** is separate from operating mode. Frequency
 opens its own pane, showing six colored band shares and Hz ranges, the actual
 sampled Pi color commands, and whether audio or the standby palette is controlling
-output. These are up to **5 Hz snapshots** of a 20 Hz feature feed and 30 Hz (Flow) / 60 Hz (Punch)
+output. These are up to **5 Hz snapshots** of a 20 Hz feature feed and 60 Hz
 renderer. RGB preview includes smoothing and master brightness; terminal color
 is approximate and does not measure the strip. Stale telemetry clears the preview.
 

@@ -2,6 +2,9 @@
 
 ## Experimental · feature/spectral-color
 
+**Flow:** Now uses the Punch engine at a fixed 45%. The separate Punch slider
+keeps its saved amount. Controls and layout are unchanged.
+
 **Low-Punch fix:** Low values now slow color changes independently of the fast
 brightness attack. Frequency smoothing, a hue speed limit, and holding ambiguous
 mixed colors prevent rapid palette flips. Gentler brightness/spatial contrast

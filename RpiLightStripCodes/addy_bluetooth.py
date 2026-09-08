@@ -305,12 +305,13 @@ def main():
             rms = reader.poll(now)
             max_rms = max(max_rms, rms)
             previous_mode = state.mode
-            fast = config.color_source == 'spectrum' and config.frequency_style == 'punch'
+            fast = config.color_source == 'spectrum'
             state.update(now, rms, behavior=config.behavior, fast=fast)
             if state.mode != previous_mode:
                 print(f'Mode: {state.mode} (RMS={rms:.4f}).', flush=True)
             features = spectrum_reader.poll(now)
-            punch.update(now, features, config.threshold, config.punch)
+            punch.update(now, features, config.threshold,
+                         45 if config.frequency_style == 'flow' else config.punch)
             spectral_active = bool(config.color_source == 'spectrum' and state.mode == 'sound'
                                    and features and features['rms'] >= config.threshold
                                    and max(features['bands']) > 0)

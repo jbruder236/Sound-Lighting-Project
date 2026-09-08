@@ -73,7 +73,7 @@ class SpectrumPane(Vertical):
         yield Static('', id='spectrum', classes='muted', markup=False)
 
     def on_mount(self):
-        self.query_one('#frequency-flow').tooltip = 'Smooth color ribbons and gentle glow'
+        self.query_one('#frequency-flow').tooltip = 'Punch response fixed at 45%'
         self.query_one('#frequency-punch').tooltip = 'Fast notes, six vivid hues, deep-to-bright contrast · master brightness still limits output'
         self.query_one(BandChart).tooltip = 'Compressed energy share per band · frequencies in Hz · up to 5 updates/s'
         self.query_one(StripPreview).tooltip = 'Sampled smoothed RGB commands, including brightness. Screen colors approximate the LEDs.'
@@ -82,7 +82,7 @@ class SpectrumPane(Vertical):
         stale = data.get('stale', True)
         receiving = not stale and data.get('spectrum') == 'receiving'
         chart = self.query_one(BandChart)
-        hues = PUNCH_HUES if data.get('frequency_style') == 'punch' else HUES
+        hues = PUNCH_HUES
         chart.band_colors = ['#' + ''.join(f'{round(c*255):02x}' for c in colorsys.hsv_to_rgb(h, 1, 1)) for h in hues]
         chart.levels = data.get('spectrum_bands', [0.] * 6) if receiving else [0.] * 6
         chart.refresh()
