@@ -40,7 +40,7 @@ resizes, and moves between workspaces normally; it no longer forces a floating s
 | Mode / S / R / A | Standby keeps the selected palette; Sound stays reactive and dims while quiet; Auto returns to standby after 10 seconds without detected audio. |
 | Effect / F | Palette uses your colorway; Flow (F), Warble, and Punch choose musical colors in one click. Warble adds gentle center-out ripples. Punch exposes its intensity slider beside the effect buttons. |
 | Palette | Every option shows colored swatches. With a musical effect selected, this is the standby/fallback palette. |
-| Brightness | Drag for live updates; Shift-drag is finer. Arrows change 1%, PgUp/PgDn 10%, Home/End reach the limits. Exact entry + Enter or Apply % also works. Zero stays dark, including after reboot. |
+| Brightness | Drag for live updates; Shift-drag is finer. Arrows change 1%, PgUp/PgDn 10%, Home/End reach the limits. Zero stays dark, including after reboot. |
 | Punch · gentle ↔ vivid | Shown beside Effect → Punch. 0 is gentle, 50 is the balanced tuning, 100 is most vivid; fast attack stays constant. |
 | White · warm ↔ cool | Choose Palette → White, then drag or use arrow keys to adjust its tint. 0 is warm, 100 cool; 50 preserves the original Workshop white. |
 | Color / C | A separate dialog with a hex field, live swatch, and eight presets. Apply selects Custom. Cancel or Escape changes nothing. |
@@ -60,7 +60,7 @@ swatch is an approximation of the LEDs. `sudo lights white 25` also selects Whit
 The Pi checks saved settings every 100 ms and fades changes smoothly; network
 and control acknowledgement can add delay. The top strip shows what
 the engine has actually applied. Remote changes refresh the controls while keeping
-an unfinished brightness edit intact. Slider drags update live, with one acknowledged write in flight and only the newest
+an active slider adjustment intact. Slider drags update live, with one acknowledged write in flight and only the newest
 values waiting. Release sends the final value; Escape restores the value from before
 the drag. Shift-drag gives fine control; wheel changes a focused slider by 2%
 (Shift-wheel 1%), while unfocused sliders let the page scroll. Bigger hit areas,
@@ -76,9 +76,9 @@ hover/focus highlighting, and a warm/cool track make controls easier to read. CL
   dims to an 8% glow multiplier in about two seconds. After the ten-second quiet
   timeout, standby fades back in. Sound returns automatically at any point.
   Standby bypasses this dim. Sound remains dim while silent instead of entering standby.
-- **Signal:** RMS level in dBFS, a −60 to 0 dBFS meter, and a 12-second scrolling
-  history sampled five times per second. The graph uses a fixed −46 to −16 dBFS
-  display scale with nonlinear peak emphasis and fine dotted columns. Fast transients between status updates may be missed.
+- **Signal:** RMS level in dBFS, a −60 to 0 dBFS meter, and a 20-second scrolling
+  history sampled five times per second. The graph places the rolling arithmetic mean of RMS at half-height; twice
+  that mean reaches the top. Startup uses the samples collected so far. Fast transients between status updates may be missed.
 - **Capture:** frames arriving, configured 48 kHz, 16-bit mono, retry count, analyzed
   windows, largest observed sample peak, and windows containing near-clipping samples.
   These counters start over with the engine. Windows are sampled for analysis;
@@ -106,17 +106,17 @@ measured. Audio inspection failures appear on the dashboard and retry automatica
 The warm/cool slider appears when **Palette → White** is selected. Musical effects
 keep the standby colorway available without showing unrelated white controls.
 The band display updates at up to 20 Hz over SSH, with bold fractional blocks,
-90 ms release, and falling peak marks; the sound history retains its 12-second view.
+90 ms release, and falling peak marks; the sound history retains its 20-second view.
 
 Charts use btop’s installed CPU gradient for sound history and softer theme hues
 for the musical bands. The RMS trace uses two dot columns per terminal cell for fine detail.
 Brief UI scheduling gaps are visually interpolated; real silence, disconnection,
 and long gaps still clear. Musical meters use 15 ms attack and 90 ms release.
 
-The light panel groups palette/color and brightness/entry controls on shared rows.
-Link details sit underneath. Music meters use bold solid fills; the dotted RMS
-history uses a fixed −46 to −16 dBFS scale with nonlinear peak emphasis. This is
-a visual exaggeration: the RMS number and level meter retain their measured values.
+Mode buttons have a three-row hit area. Standby hides the Effect controls while
+remembering the chosen sound effect. Brightness uses only the live slider.
+Link sits at the bottom, below Sound. The RMS graph is relative to its rolling
+20-second mean; numeric RMS and the dBFS meter remain absolute measurements.
 
 
 ## Install the optional interface

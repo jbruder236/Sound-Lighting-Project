@@ -99,7 +99,7 @@ class Dashboard(App):
         self.slider_timer = None
         self.load_omarchy_theme()
         self.history_at = 0
-        self.history = deque([0.0] * 60, maxlen=60)
+        self.history = deque(maxlen=100)
         self.data = {}
         self.graph = {}
         try:
@@ -147,31 +147,28 @@ class Dashboard(App):
                     with Vertical(id='controls', classes='panel'):
                         yield Label('light', classes='eyebrow')
                         yield Label('Mode')
-                        with Horizontal(classes='row'):
-                            yield Button('Standby', compact=True, id='mode-idle')
-                            yield Button('Sound', compact=True, id='mode-sound')
-                            yield Button('Auto', compact=True, id='mode-auto')
-                        yield Label('Effect')
-                        with Horizontal(classes='row'):
-                            yield Button('Palette', compact=True, id='source-palette')
-                            yield Button('Flow', compact=True, id='frequency-flow')
-                            yield Button('Warble', compact=True, id='frequency-warble')
-                            yield Button('Punch', compact=True, id='frequency-punch')
-                        yield Static('', id='effect-hint', classes='muted')
-                        with Vertical(id='punch-control'):
-                            yield Label('Punch · gentle ↔ vivid')
-                            yield Slider(self.initial.punch, id='punch-slider',
-                                         tooltip='Live intensity · fast attack at every setting')
+                        with Horizontal(classes='row', id='mode-buttons'):
+                            yield Button('Standby', compact=False, id='mode-idle')
+                            yield Button('Sound', compact=False, id='mode-sound')
+                            yield Button('Auto', compact=False, id='mode-auto')
+                        with Vertical(id='effect-controls'):
+                            yield Label('Effect')
+                            with Horizontal(classes='row'):
+                                yield Button('Palette', compact=True, id='source-palette')
+                                yield Button('Flow', compact=True, id='frequency-flow')
+                                yield Button('Warble', compact=True, id='frequency-warble')
+                                yield Button('Punch', compact=True, id='frequency-punch')
+                            yield Static('', id='effect-hint', classes='muted')
+                            with Vertical(id='punch-control'):
+                                yield Label('Punch · gentle ↔ vivid')
+                                yield Slider(self.initial.punch, id='punch-slider',
+                                             tooltip='Live intensity · fast attack at every setting')
                         yield Label('Palette', id='palette-label')
                         with Horizontal(classes='row', id='palette-entry'):
                             yield Select([(scene_label(s, self.initial), s) for s in SCENES if s != 'spectrum'],
                                          allow_blank=False, value=self.initial.scene, compact=True, id='scene')
                             yield Button('Color…', compact=True, id='pick-color')
-                        with Horizontal(classes='row', id='brightness-entry'):
-                            yield Label('Brightness')
-                            yield Input(str(round(self.initial.brightness / 255 * 100)), type='integer',
-                                        id='brightness', max_length=3, compact=True, tooltip='Exact % · Enter to apply')
-                            yield Button('Apply %', compact=True, id='set-brightness')
+                        yield Label('Brightness', id='brightness-label')
                         yield Slider(round(self.initial.brightness / 255 * 100), id='brightness-slider',
                                      tooltip='Live drag · Shift-drag fine · arrows ±1 · wheel ±2 · PgUp/PgDn ±10 · Esc cancels drag')
                         with Vertical(id='white-control'):
@@ -179,10 +176,6 @@ class Dashboard(App):
                             yield Slider(self.initial.white, id='white-slider', gradient=('#ff7828', '#bedcff'),
                                          tooltip='Moving this selects steady White. RGB tint, not calibrated Kelvin.')
                         yield Static('', id='saved', markup=False)
-                    with Vertical(classes='panel', id='connection'):
-                        yield Label('link', classes='eyebrow')
-                        yield Static('Checking audio…', id='route', markup=False)
-                        yield Static('', id='runtime', markup=False)
                 with Vertical(id='telemetry-column'):
                     yield SpectrumPane(id='spectrum-pane', classes='panel')
                     with Vertical(id='monitor', classes='panel'):
@@ -191,15 +184,19 @@ class Dashboard(App):
                         yield Static('Waiting for telemetry', id='level')
                         yield ProgressBar(total=60, show_eta=False, show_percentage=False, id='meter')
                         yield SoundHistory(list(self.history), id='wave')
-                        yield Static('RMS · 12s · peak emphasis', classes='muted')
+                        yield Static('RMS · 20s · midpoint = average', classes='muted')
                         yield Static('', id='capture', markup=False)
                         yield Static('', id='timing', markup=False)
+                    with Vertical(classes='panel', id='connection'):
+                        yield Label('link', classes='eyebrow')
+                        yield Static('Checking audio…', id='route', markup=False)
+                        yield Static('', id='runtime', markup=False)
         yield Footer()
 
     def on_mount(self):
         for name, tip in dict(flow='Flow · responsive musical colors, balanced at 45%', warble='Warble · Flow with gentle ripples from the center of each strip', punch='Punch · musical colors with adjustable intensity').items():
             self.query_one('#frequency-' + name).tooltip = tip
-        self.query_one('#wave').tooltip = '12-second history · 5 updates/s · peak-emphasized −46 to −16 dBFS display · numeric RMS unchanged'
+        self.query_one('#wave').tooltip = '20-second rolling RMS average at half-height · twice average at the top · numeric RMS unchanged'
         self.query_one('#spectrum').tooltip = ('Laptop FFT: 2,048 samples at 48 kHz (42.67 ms), up to 20 Hz. '
             'SSH RTT and feature freshness are not sound-to-light latency.')
         self.query_one('#timing').tooltip = ('Analysis window and requested PipeWire buffer only. '
@@ -233,9 +230,6 @@ class Dashboard(App):
         except (OSError, ValueError) as error:
             self.message(str(error))
             return
-        brightness_input = self.query_one('#brightness', Input)
-        old_value = str(round(self.displayed.brightness / 255 * 100)) if self.displayed else None
-        dirty = brightness_input.value != old_value
         previous = self.displayed
         self.displayed = config
         if previous is None or previous.color != config.color:
@@ -246,8 +240,6 @@ class Dashboard(App):
             widget = self.query_one('#' + name, Select)
             with widget.prevent(Select.Changed):
                 widget.value = value
-        if not keep_draft or not dirty:
-            brightness_input.value = str(round(config.brightness / 255 * 100))
         for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider, #spectrum-pane Button, #spectrum-pane Slider'):
             widget.disabled = not self.backend.controls_available
         if not self.slider_pending and not self.slider_saving:
@@ -262,6 +254,7 @@ class Dashboard(App):
     def show_choices(self, config):
         for value in ('idle', 'sound', 'auto'):
             self.query_one('#mode-' + value, Button).variant = 'primary' if config.behavior == value else 'default'
+        self.query_one('#effect-controls').display = config.behavior != 'idle'
         self.query_one('#source-palette', Button).variant = 'primary' if config.color_source == 'palette' else 'default'
         for value in ('flow', 'warble', 'punch'):
             self.query_one('#frequency-' + value, Button).variant = 'primary' if config.color_source == 'spectrum' and config.frequency_style == value else 'default'
@@ -270,7 +263,7 @@ class Dashboard(App):
         self.query_one('#palette-label', Label).update('Standby palette' if config.color_source == 'spectrum' else 'Palette')
         self.query_one('#spectrum-pane').display = config.color_source == 'spectrum'
         self.query_one('#punch-control').display = config.color_source == 'spectrum' and config.frequency_style == 'punch'
-        self.query_one('#white-control').display = config.color_source == 'palette' and config.scene == 'workshop'
+        self.query_one('#white-control').display = (config.color_source == 'palette' or config.behavior == 'idle') and config.scene == 'workshop'
 
     def message(self, text):
         self.query_one('#saved', Static).update(text)
@@ -303,7 +296,6 @@ class Dashboard(App):
             return
         if event.slider.id == 'brightness-slider':
             self.slider_pending['brightness'] = round(event.value * 255 / 100)
-            self.query_one('#brightness', Input).value = str(event.value)
         elif event.slider.id == 'white-slider':
             self.slider_pending.update(white=event.value, scene='workshop', color_source='palette')
         elif event.slider.id == 'punch-slider':
@@ -339,23 +331,8 @@ class Dashboard(App):
                 self.slider_timer = self.set_timer(.12, self.save_sliders)
             self.sync_controls()
 
-    @on(Input.Submitted, '#brightness')
-    def brightness_enter(self):
-        self.set_brightness()
-
-    def set_brightness(self, delta=0):
-        try:
-            value = int(self.query_one('#brightness', Input).value)
-            value = max(0, min(100, value + delta)) if delta else value
-            if not 0 <= value <= 100:
-                raise ValueError
-        except ValueError:
-            self.message('Enter 0–100.')
-            return
-        self.save(brightness=round(value * 255 / 100))
-
     def on_button_pressed(self, event):
-        actions = {'set-brightness': self.set_brightness, 'pick-color': self.action_color}
+        actions = {'pick-color': self.action_color}
         name = event.button.id or ''
         if name.startswith('mode-'):
             self.save(behavior=name.removeprefix('mode-'))
@@ -437,7 +414,7 @@ class Dashboard(App):
         if tick > self.history_at:
             # Interpolate a brief scheduling gap, not a false silence spike.
             # Long gaps and unavailable telemetry stay blank.
-            missed = min(59, max(0, tick-self.history_at-1)) if self.history_at else 0
+            missed = min(99, max(0, tick-self.history_at-1)) if self.history_at else 0
             previous = self.history[-1] if self.history else 0.
             self.history.extend(
                 previous + (rms-previous) * (i+1)/(missed+1)

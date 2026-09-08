@@ -2,6 +2,11 @@
 
 ## Experimental · feature/spectral-color
 
+**Relative RMS:** The last 20 seconds of average RMS sit at the graph midpoint;
+twice that average reaches the top. Silence remains zero; numeric levels stay
+absolute. Larger Mode buttons, Effect controls hidden in Standby, slider-only
+brightness, and Link moved below Sound simplify the controls.
+
 **Compact controls:** Color picker alongside the palette; exact brightness beside
 its label; shorter sliders and less padding. Link details use the space below the
 light panel. Music meters regain solid fills and stronger gradients. The dotted

@@ -76,15 +76,13 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self.backend.settings().scene, 'aurora')
             # A separate CLI writer changed the timeout; the UI must preserve it.
             self.backend.save(quiet_seconds=30)
-            app.query_one('#brightness', Input).value = '70'
-            app.refresh_status()  # External telemetry must not discard a typed draft.
-            await pilot.click('#set-brightness')
-            await pilot.pause()
+            slider = app.query_one('#brightness-slider', Slider)
+            slider.focus()
+            await pilot.press('home', *(['pageup'] * 7))
+            await pilot.pause(.5)
             self.assertEqual(self.backend.settings().brightness, 178)
             self.assertEqual(self.backend.settings().quiet_seconds, 30)
-            app.query_one('#brightness', Input).value = '101'
-            await pilot.click('#set-brightness')
-            self.assertEqual(self.backend.settings().brightness, 178)
+            self.assertFalse(app.query('#brightness, #set-brightness'))
             await pilot.click('#pick-color')
             await pilot.pause()
             self.assertIsInstance(app.screen, ColorPicker)
@@ -131,7 +129,6 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertEqual(self.backend.config.read_bytes(), before)
             self.assertEqual(app.query_one('#scene', Select).value, 'aurora')
-            self.assertEqual(app.query_one('#brightness', Input).value, '27')
             self.assertEqual(app.query_one('#brightness-slider', Slider).value, 27)
 
     async def test_sliders_live_drag_keyboard_coalesce_and_white_scene(self):
@@ -235,9 +232,13 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             await pilot.click('#mode-idle')
             await pilot.pause()
             self.assertEqual(self.backend.settings().behavior, 'idle')
+            self.assertFalse(app.query_one('#effect-controls').display)
+            self.assertEqual(app.query_one('#mode-idle').size.height, 3)
+            self.assertGreater(app.query_one('#connection').region.y, app.query_one('#monitor').region.y)
             await pilot.click('#mode-auto')
             await pilot.pause()
             self.assertEqual(self.backend.settings().behavior, 'auto')
+            self.assertTrue(app.query_one('#effect-controls').display)
             await pilot.resize_terminal(54, 38)
             await pilot.click('#source-palette')
             await pilot.pause()
@@ -285,12 +286,22 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(chart.shown, [0]*6)
         self.assertEqual(chart.peaks, [0]*6)
 
-    async def test_sound_history_fixed_scale_fine_bars_and_fast_sampling(self):
+    def test_rms_mean_is_midpoint_independent_of_volume(self):
+        from sound_history import relative_level
+        for average in (.003, .02, .1):
+            self.assertEqual(relative_level(average, average), .5)
+            self.assertEqual(relative_level(2*average, average), 1)
+            self.assertEqual(relative_level(.5*average, average), .25)
+            self.assertEqual(relative_level(0, average), 0)
+        self.assertEqual(relative_level(0, 0), 0)
+
+    async def test_sound_history_relative_scale_and_fast_sampling(self):
         from sound_history import SoundHistory
         from unittest.mock import patch
         app = Dashboard(self.backend)
         async with app.run_test(size=(100, 48)) as pilot:
             await pilot.pause()
+            self.assertEqual(app.history.maxlen, 100)
             chart = app.query_one('#wave', SoundHistory)
             chart.data = [.02] * 60
             before = chart.render().plain.splitlines()
@@ -298,7 +309,7 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(any(0x2801 <= ord(c) <= 0x28ff for c in ''.join(before)))
             chart.data = [1.] + [.02] * 59
             after = chart.render().plain.splitlines()
-            self.assertEqual([row[-1] for row in before], [row[-1] for row in after])
+            self.assertNotEqual([row[-1] for row in before], [row[-1] for row in after])
             chart.data = [0.] * 60
             self.assertFalse(chart.render().plain.strip())
             app.history.clear()
