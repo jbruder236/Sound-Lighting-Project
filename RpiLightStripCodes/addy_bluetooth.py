@@ -16,6 +16,7 @@ import numpy as np
 from settings import VERSION, SCENES, Settings, SettingsWatcher, atomic_json, read_settings
 
 from spectrum import SpectrumReader, HUES
+from colors import white_rgb
 
 TARGET = 'lighting_audio'
 RATE, CHUNK = 48000, 1024
@@ -26,7 +27,7 @@ PALETTES = {'sunset': (0.98, 0.10), 'ocean': (0.51, 0.10),
 
 class LightState:
     """Use actual sound, not merely an open audio device, to select the mode."""
-    def __init__(self, now, quiet_seconds=4, threshold=0.003):
+    def __init__(self, now, quiet_seconds=10, threshold=0.003):
         self.quiet_seconds, self.threshold = quiet_seconds, threshold
         self.last_sound = None
         self.last_update = now
@@ -35,20 +36,22 @@ class LightState:
         self.mode = 'idle'
         self.gain = 1.0
 
-    def update(self, now, rms, reactive=True):
+    def update(self, now, rms, reactive=True, behavior='auto'):
         dt = max(0.0, min(0.25, now - self.last_update))
         self.last_update = now
         if rms >= self.threshold:
             self.last_sound = now
         self.mode = ('sound' if self.last_sound is not None and
                      now - self.last_sound < self.quiet_seconds else 'idle')
-        if self.mode == 'sound' and now - self.last_sound > 0.25:
+        if behavior == 'sound':
+            self.mode = 'sound'
+        if self.mode == 'sound' and (self.last_sound is None or now - self.last_sound > 0.25):
             self.mode = 'quiet'
         self.reference = max(0.025, rms, self.reference * math.exp(-dt / 6))
         level = min(1.0, rms / self.reference) if rms >= self.threshold else 0.0
         tau = 0.45 if level > self.envelope else 1.6
         self.envelope += (level - self.envelope) * (1 - math.exp(-dt / tau))
-        if not reactive:
+        if not reactive or behavior == 'idle':
             self.mode = 'idle'
         gain = 0.08 if self.mode == 'quiet' else 1.0
         gain_tau = 0.22 if gain < self.gain else 1.0
@@ -57,18 +60,11 @@ class LightState:
         self.mix += (target - self.mix) * (1 - math.exp(-dt / 1.2))
 
 
-def white_rgb(tint):
-    """RGB tint, not calibrated Kelvin; midpoint preserves the original Workshop."""
-    warm, neutral, cool = (255, 120, 40), (255, 205, 145), (190, 220, 255)
-    a, b = (warm, neutral) if tint <= 50 else (neutral, cool)
-    mix = tint / 50 if tint <= 50 else (tint - 50) / 50
-    return tuple(round(x + (y - x) * mix) for x, y in zip(a, b))
-
-
 def frame(count, elapsed, state, scene='rainbow', color='#ff9646', white=50, spectrum=None):
     """Keep the approved saturated palette; crossfade only motion and glow."""
     if scene == 'workshop':
-        return [white_rgb(white)] * count
+        level = (1 - .28 * (1 - state.envelope) * state.mix) * state.gain
+        return [tuple(round(c * level) for c in white_rgb(white))] * count
     pixels = []
     spectral = (scene == 'spectrum' and spectrum and spectrum['rms'] >= state.threshold and
                 max(spectrum['bands']) > 0 and state.mode == 'sound')
@@ -100,6 +96,14 @@ def frame(count, elapsed, state, scene='rainbow', color='#ff9646', white=50, spe
             rgb = colorsys.hsv_to_rgb(hue, 1.0, value)
         pixels.append(tuple(round(c * 255) for c in rgb))
     return pixels
+
+
+def output_preview(pixels, brightness):
+    """Sample actual smoothed commands after master brightness, not LED measurements."""
+    if pixels is None or len(pixels) == 0:
+        return []
+    return ['#' + ''.join(f'{round(round(c) * round(brightness) / 255):02x}' for c in pixels[i])
+            for i in np.linspace(0, len(pixels) - 1, min(24, len(pixels)), dtype=int)]
 
 
 class AudioReader:
@@ -225,7 +229,7 @@ def main():
     ap.add_argument('--brightness', type=int, default=255)
     ap.add_argument('--target', default=TARGET, help='PipeWire sink monitor to capture')
     ap.add_argument('--audio-user', default='pi', help='User owning the PipeWire session')
-    ap.add_argument('--quiet-seconds', type=float, default=4)
+    ap.add_argument('--quiet-seconds', type=float, default=10)
     ap.add_argument('--threshold', type=float, default=0.003, help='Sound threshold as normalized RMS (0..1)')
     ap.add_argument('--audio-only', action='store_true', help='Test audio and mode transitions without GPIO')
     args = ap.parse_args()
@@ -288,12 +292,16 @@ def main():
             rms = reader.poll(now)
             max_rms = max(max_rms, rms)
             previous_mode = state.mode
-            state.update(now, rms, reactive=config.behavior == 'auto' and config.scene != 'workshop')
+            state.update(now, rms, behavior=config.behavior)
             if state.mode != previous_mode:
                 print(f'Mode: {state.mode} (RMS={rms:.4f}).', flush=True)
             features = spectrum_reader.poll(now)
+            spectral_active = bool(config.color_source == 'spectrum' and state.mode == 'sound'
+                                   and features and features['rms'] >= config.threshold
+                                   and max(features['bands']) > 0)
+            render_scene = 'spectrum' if spectral_active else config.scene
             if strip is not None:
-                desired = np.array(frame(args.count, now - start, state, config.scene,
+                desired = np.array(frame(args.count, now - start, state, render_scene,
                                          config.color, config.white, features), dtype=float)
                 if previous_pixels is None:
                     previous_pixels = desired
@@ -314,7 +322,9 @@ def main():
                         'uptime_seconds': round(now - start, 1), 'scene': config.scene,
                         'brightness_percent': round(config.brightness / 255 * 100),
                         'mode': state.mode, 'behavior': config.behavior, 'color': config.color,
-                        'white': config.white,
+                        'white': config.white, 'color_source': config.color_source,
+                        'spectrum_active': spectral_active,
+                        'strip_preview': output_preview(previous_pixels, brightness),
                         'output_gain_percent': round(state.gain * 100),
                         'rms': round(rms, 5),
                         'sound_age_seconds': None if state.last_sound is None else round(now - state.last_sound, 1),
@@ -326,7 +336,7 @@ def main():
                     if str(error) != last_status_error:
                         print(f'Status write failed: {error}', flush=True)
                         last_status_error = str(error)
-                next_status = now + 1
+                next_status = now + (.2 if config.color_source == 'spectrum' else 1)
             time.sleep(max(0, 1 / 30 - (time.monotonic() - now)))
         print(f'Audio blocks={reader.blocks}, max RMS={max_rms:.3f}, peak={reader.peak:.3f}', flush=True)
     finally:

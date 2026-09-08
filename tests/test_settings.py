@@ -14,7 +14,7 @@ class SettingsTests(unittest.TestCase):
         for values in ({'brightness': -1}, {'brightness': 256}, {'brightness': True},
                        {'quiet_seconds': float('nan')}, {'threshold': 0},
                        {'white': -1}, {'white': 101}, {'white': True}, {'white': 50.5},
-                       {'scene': 'strobe'}, {'behavior': 'unknown'}, {'pin': 18}):
+                       {'color_source': 'bad'}, {'scene': 'strobe'}, {'behavior': 'unknown'}, {'pin': 18}):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Settings.parse(values)
 
@@ -25,6 +25,12 @@ class SettingsTests(unittest.TestCase):
         for value in ('red', '#fff', '#gg0000', '#00000000', 123, None):
             with self.subTest(color=value), self.assertRaises(ValueError):
                 Settings.parse({'color': value})
+
+    def test_legacy_spectrum_migrates_and_new_modes_validate(self):
+        migrated = Settings.parse({'scene': 'spectrum'})
+        self.assertEqual((migrated.scene, migrated.color_source), ('rainbow', 'spectrum'))
+        self.assertEqual(migrated.quiet_seconds, 10)
+        self.assertEqual(Settings.parse({'behavior': 'sound'}).behavior, 'sound')
 
     def test_bad_update_keeps_last_good_and_recovers(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -17,10 +17,11 @@ class Settings:
     scene: str = 'rainbow'
     brightness: int = 255
     behavior: str = 'auto'
-    quiet_seconds: float = 4
+    quiet_seconds: float = 10
     threshold: float = 0.003
     color: str = '#ff9646'
     white: int = 50
+    color_source: str = 'palette'
 
     @classmethod
     def parse(cls, values):
@@ -32,13 +33,17 @@ class Settings:
         merged = asdict(cls()) | values
         if merged['scene'] not in SCENES:
             raise ValueError('scene must be one of: ' + ', '.join(SCENES))
+        if merged['scene'] == 'spectrum':
+            merged.update(scene='rainbow', color_source='spectrum')
+        if merged['color_source'] not in ('palette', 'spectrum'):
+            raise ValueError('color_source must be palette or spectrum')
         color = merged['color']
         if (not isinstance(color, str) or len(color) != 7 or color[0] != '#'
                 or any(c not in '0123456789abcdefABCDEF' for c in color[1:])):
             raise ValueError('color must be a six-digit hex color, e.g. #ff9646')
         merged['color'] = color.lower()
-        if merged['behavior'] not in ('auto', 'idle'):
-            raise ValueError('behavior must be auto or idle')
+        if merged['behavior'] not in ('auto', 'idle', 'sound'):
+            raise ValueError('behavior must be auto, idle (standby), or sound')
         if type(merged['brightness']) is not int or not 0 <= merged['brightness'] <= 255:
             raise ValueError('brightness must be an integer from 0 to 255')
         if type(merged['white']) is not int or not 0 <= merged['white'] <= 100:

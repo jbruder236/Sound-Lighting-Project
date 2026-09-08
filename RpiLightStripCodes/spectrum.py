@@ -58,6 +58,7 @@ class SpectrumReader:
     def status(self, now):
         packet = self.poll(now)
         return {'spectrum': 'receiving' if packet else 'waiting',
+                'spectrum_bands': packet['bands'] if packet else [0.] * 6,
                 'spectrum_band': BANDS[max(range(6), key=lambda i: packet['bands'][i])]
                     if packet and max(packet['bands']) > 0 else None,
                 'spectrum_age_ms': round((now - self.received) * 1000) if packet else None,
