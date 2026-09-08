@@ -60,10 +60,15 @@ These are filter time constants, **not measured end-to-end latency**. Punch rend
 at up to 60 fps; the existing FFT feed remains up to 20 Hz with 42.67 ms windows.
 No extra FFT runs on the Pi. Timing still includes capture, SSH, and Bluetooth.
 
-**Punch amount** ranges from **0 (gentle)** through **50 (balanced, the previous
-calmer tuning)** to **100 (original Punch)**. It changes band emphasis, region
-width, hue variation, brightness contrast, and release (200–120 ms). The 25 ms
-attack and 35/90 ms pixel filters stay constant. Zero is gentle reactive lighting,
+**Punch amount** ranges from **0 (gentle)** through **50 (balanced)** to **100 (most vivid)**. It changes band emphasis, region
+width, hue variation, brightness contrast, and release (200–120 ms). Low amounts now also smooth the frequency bands and
+limit color speed separately from brightness: near 0, colors move at about 36°
+of hue per second with a 700 ms band filter; near 100, color response is much
+faster. Near-neutral mixtures keep their previous hue instead of amplifying tiny
+spectrum changes into saturated color jumps. Low amounts compress brightness
+swings and keep the spatial glow more even. Silent input still dims normally.
+The 25 ms
+brightness attack and 35/90 ms pixel filters stay constant. Zero is gentle reactive lighting,
 not off; master brightness remains the output cap. Amount changes glide over a
 120 ms time constant. The saved integer `punch` defaults to 50 in older configs.
 
@@ -72,7 +77,7 @@ The Pi checks settings every 100 ms; SSH and existing brightness fades still add
 delay. Adjusting Punch preserves Flow/Punch selection, operating mode, and brightness.
 
 Quiet feature frames remain dark instead of briefly flashing the standby palette.
-Missing/expired features fall back to the selected palette; Pi audio still controls
+Missing/expired features fade back to the selected palette; Pi audio still controls
 mute dimming and the Auto timeout. Switching styles preserves mode, palette, and
 brightness. `frequency_style` persists as `flow` or `punch`; older settings default
 to Flow. Standby remains the selected ambient palette in either style.

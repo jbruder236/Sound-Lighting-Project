@@ -65,7 +65,7 @@ class SpectrumPane(Vertical):
         with Vertical(id='punch-control'):
             yield Label('Punch · gentle ↔ vivid')
             yield Slider(50, id='punch-slider',
-                         tooltip='Live intensity · 50 = balanced · 100 = original Punch · fast attack at every setting')
+                         tooltip='Live intensity · 50 = balanced · 100 = most vivid · fast attack at every setting')
         yield Static('', id='spectrum-control', markup=False)
         yield BandChart(id='bands')
         yield Static('Pi output · sampled commands', classes='muted')

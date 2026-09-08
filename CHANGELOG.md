@@ -2,6 +2,12 @@
 
 ## Experimental · feature/spectral-color
 
+**Low-Punch fix:** Low values now slow color changes independently of the fast
+brightness attack. Frequency smoothing, a hue speed limit, and holding ambiguous
+mixed colors prevent rapid palette flips. Gentler brightness/spatial contrast
+reduces flicker; missing features fade to the standby palette. Slider value and
+master brightness are preserved.
+
 **Punch amount:** A live 0–100 slider in Frequency → Punch. 50 preserves the
 balanced tuning, 100 restores original Punch, and 0 is gentler. Fast attack stays
 constant; amount glides between settings. Saved across reboot; brightness stays capped.

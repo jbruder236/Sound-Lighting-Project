@@ -41,7 +41,7 @@ resizes, and moves between workspaces normally; it no longer forces a floating s
 | Color follows / F | Palette holds the selected colorway; Frequency opens the spectrum pane and lets musical bands choose colors during sound. |
 | Palette | Every option shows colored swatches. With Frequency selected, this is the standby/fallback palette. |
 | Brightness | Drag for live updates; Shift-drag is finer. Arrows change 1%, PgUp/PgDn 10%, Home/End reach the limits. Exact entry + Enter or Apply % also works. Zero stays dark, including after reboot. |
-| Punch · gentle ↔ vivid | Shown in Frequency → Punch. 0 is gentle, 50 is the balanced tuning, 100 restores original Punch; fast attack stays constant. |
+| Punch · gentle ↔ vivid | Shown in Frequency → Punch. 0 is gentle, 50 is the balanced tuning, 100 is most vivid; fast attack stays constant. |
 | White · warm ↔ cool | Drag or use arrow keys to select steady White and adjust its tint. 0 is warm, 100 cool; 50 preserves the original Workshop white. |
 | Color / C | A separate dialog with a hex field, live swatch, and eight presets. Apply selects Custom. Cancel or Escape changes nothing. |
 | Q | Close only the dashboard. |

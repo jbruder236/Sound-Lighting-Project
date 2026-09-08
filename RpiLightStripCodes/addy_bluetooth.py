@@ -322,7 +322,7 @@ def main():
                                 config.color, config.white, features))
                 desired = np.array(pixels, dtype=float)
                 previous_pixels = smooth_pixels(previous_pixels, desired, dt,
-                    fast=fast and state.mode != 'idle', quiet=state.mode == 'quiet')
+                    fast=bool(fast and features and state.mode != 'idle'), quiet=state.mode == 'quiet')
                 brightness += (config.brightness - brightness) * (1 - math.exp(-dt / 0.65))
                 strip.setBrightness(round(brightness))
                 for i, rgb in enumerate(previous_pixels):

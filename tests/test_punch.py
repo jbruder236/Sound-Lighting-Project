@@ -10,6 +10,51 @@ from addy_bluetooth import LightState, output_preview
 
 
 class PunchTests(unittest.TestCase):
+    def test_ambiguous_color_mixtures_hold_the_previous_hue(self):
+        punch = Punch(0)
+        punch.amount = 9
+        punch.level = 1
+        red = {'bands': [1, 0, 0, 0, 0, 0]}
+        punch.frame(1, red, 1)
+        original = punch.hues[0]
+        for bands in ([.15, 0, .38, 0, .47, 0], [.15, 0, .37, 0, .48, 0]):
+            punch.frame(1, {'bands': bands}, 1)
+            self.assertAlmostEqual(punch.hues[0], original)
+        punch.frame(1, {'bands': [0, 0, 1, 0, 0, 0]}, 1)
+        self.assertNotEqual(punch.hues[0], original)
+
+    def test_low_punch_rejects_rapid_color_alternation_but_keeps_fast_attack(self):
+        changes = []
+        for amount in (9, 100):
+            punch = Punch(0)
+            punch.amount = amount
+            hues = []
+            for i in range(1, 81):
+                bands = [0.] * 6
+                bands[0 if i % 2 else 4] = 1
+                features = {'rms': .08, 'bands': bands}
+                punch.update(i*.05, features, amount=amount)
+                rgb = punch.frame(1, features, 1)[0]
+                hues.append(colorsys.rgb_to_hsv(*rgb)[0])
+                if i == 2:
+                    self.assertGreater(punch.level, .98)
+            changes.append(max(abs((b-a+.5) % 1-.5) for a,b in zip(hues,hues[1:])))
+        self.assertLess(changes[0], .01)  # Less than 3.6° per 50 ms update.
+        self.assertGreater(changes[1], .05)
+
+    def test_low_punch_compresses_brightness_swings_and_silence_still_dims(self):
+        features = {'rms': .08, 'bands': [1, 0, 0, 0, 0, 0]}
+        brightness = []
+        for amount in (9, 100):
+            punch = Punch(0)
+            punch.amount = amount
+            punch.level = .2
+            brightness.append(max(punch.frame(1, features, 1)[0]))
+            for i in range(1, 61):
+                punch.update(i/60, {'rms': 0, 'bands': [0]*6}, amount=amount)
+            self.assertLess(max(punch.frame(1, features, .08)[0]), 5)
+        self.assertGreater(brightness[0], brightness[1]*2)
+
     def test_amount_changes_contrast_without_slowing_attack_or_exceeding_cap(self):
         features = {'rms': .08, 'bands': [1, 0, 0, 0, 0, 0]}
         frames = []
@@ -42,14 +87,15 @@ class PunchTests(unittest.TestCase):
             fast = smooth_pixels(fast, np.zeros_like(fast), 1/60, fast=True)
         self.assertLess(fast[0, 0], 10)
 
-    def test_loudness_changes_have_large_contrast_and_release(self):
+    def test_full_punch_loudness_changes_have_large_contrast_and_release(self):
         punch = Punch(0)
+        punch.amount = 100
         for i in range(1, 7):
-            punch.update(i/60, {'rms': .08})
+            punch.update(i/60, {'rms': .08}, amount=100)
         self.assertGreater(punch.level, .98)
         loud = punch.frame(100, {'bands': [1, 0, 0, 0, 0, 0]}, 1)
         for i in range(7, 37):
-            punch.update(i/60, {'rms': .006})
+            punch.update(i/60, {'rms': .006}, amount=100)
         quiet = punch.frame(100, {'bands': [1, 0, 0, 0, 0, 0]}, 1)
         self.assertGreater(max(map(max, loud)), 240)
         self.assertLess(max(map(max, quiet)), 30)
@@ -61,6 +107,8 @@ class PunchTests(unittest.TestCase):
         punch.level = 1
         hues = []
         for band in range(6):
+            punch = Punch(0)
+            punch.level = 1
             features = {'bands': [int(i == band) for i in range(6)]}
             pixels = punch.frame(101, features, 1)
             self.assertTrue(all(0 <= c <= 255 for rgb in pixels for c in rgb))
