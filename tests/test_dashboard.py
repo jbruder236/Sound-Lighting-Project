@@ -168,6 +168,43 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('unmeasured', str(app.query_one('#timing', Static).render()))
             self.assertIn('21.33 ms', str(app.query_one('#timing', Static).render()))
 
+    async def test_mode_buttons_frequency_pane_and_stale_visuals(self):
+        from spectrum_pane import BandChart, StripPreview
+        from textual.widgets import Button
+        app = Dashboard(self.backend)
+        async with app.run_test(size=(100, 48)) as pilot:
+            await pilot.pause()
+            self.assertFalse(app.query_one('#spectrum-pane').display)
+            await pilot.click('#mode-sound')
+            await pilot.pause()
+            self.assertEqual(self.backend.settings().behavior, 'sound')
+            await pilot.click('#source-spectrum')
+            await pilot.pause()
+            self.assertEqual(self.backend.settings().color_source, 'spectrum')
+            self.assertTrue(app.query_one('#spectrum-pane').display)
+            self.assertEqual(self.backend.settings().scene, 'rainbow')
+            self.assertEqual(app.query_one('#source-spectrum', Button).variant, 'primary')
+            atomic_json(self.status, dict(updated_at=time.time(), color_source='spectrum',
+                scene='rainbow', spectrum='receiving', spectrum_bands=[.8, .1, .1, 0, 0, 0],
+                spectrum_active=True, strip_preview=['#ff8000', '#ff3000']))
+            app.refresh_status()
+            self.assertEqual(app.query_one(BandChart).levels[0], .8)
+            self.assertEqual(app.query_one(StripPreview).colors[0], '#ff8000')
+            self.status.unlink()
+            app.refresh_status()
+            self.assertEqual(app.query_one(BandChart).levels, [0.] * 6)
+            self.assertFalse(app.query_one(StripPreview).colors)
+            await pilot.click('#mode-idle')
+            await pilot.pause()
+            self.assertEqual(self.backend.settings().behavior, 'idle')
+            await pilot.click('#mode-auto')
+            await pilot.pause()
+            self.assertEqual(self.backend.settings().behavior, 'auto')
+            await pilot.resize_terminal(54, 38)
+            await pilot.click('#source-palette')
+            await pilot.pause()
+            self.assertFalse(app.query_one('#spectrum-pane').display)
+
     async def test_remote_dashboard_exit_reaps_ssh_child(self):
         from remote_backend import RemoteBackend
         backend = RemoteBackend()

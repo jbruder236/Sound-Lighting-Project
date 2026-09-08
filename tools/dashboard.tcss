@@ -44,3 +44,10 @@ ColorPicker { align: center middle; background: $background 80%; }
 #picker #color-error { height: 2; color: $warning; }
 
 #spectrum { height: auto; color: $secondary; }
+
+#spectrum-pane { margin-top: 1; border: round $secondary; }
+#spectrum-pane .eyebrow { color: $secondary; }
+#spectrum-control { height: auto; }
+BandChart { height: 7; }
+StripPreview { height: 1; margin-bottom: 1; }
+#source-spectrum { min-width: 11; }

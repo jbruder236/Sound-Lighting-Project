@@ -6,6 +6,7 @@ import math
 import re
 from pathlib import Path
 import tomllib
+import time
 
 from rich.text import Text
 from textual import on, work
@@ -18,6 +19,8 @@ from textual.widgets import Button, Footer, Input, Label, ProgressBar, Select, S
 from dashboard_data import Backend
 from settings import SCENES, VERSION, Settings
 from slider import Slider
+from palette_preview import scene_label
+from spectrum_pane import SpectrumPane
 
 
 class ColorPicker(ModalScreen[str | None]):
@@ -83,7 +86,8 @@ class Dashboard(App):
     TITLE = 'Sound Lighting'
     CSS_PATH = 'dashboard.tcss'
     BINDINGS = [('q', 'quit', 'Quit'), ('c', 'color', 'Color'),
-                ('a', 'auto', 'Auto'), ('s', 'idle', 'Standby')]
+                ('a', 'auto', 'Auto'), ('s', 'idle', 'Standby'),
+                ('r', 'sound', 'Sound'), ('f', 'frequency', 'Frequency')]
 
     def __init__(self, backend=None):
         super().__init__()
@@ -93,6 +97,7 @@ class Dashboard(App):
         self.slider_saving = False
         self.slider_timer = None
         self.load_omarchy_theme()
+        self.history_at = 0
         self.history = deque([0.0] * 60, maxlen=60)
         self.data = {}
         self.graph = {}
@@ -136,12 +141,18 @@ class Dashboard(App):
             with Horizontal(id='panels'):
                 with Vertical(id='controls', classes='panel'):
                     yield Label('light', classes='eyebrow')
-                    yield Label('Scene')
-                    yield Select([('White' if s == 'workshop' else s.title(), s) for s in SCENES], allow_blank=False,
-                                 value=self.initial.scene, compact=True, id='scene')
                     yield Label('Mode')
-                    yield Select([('Auto', 'auto'), ('Standby', 'idle')],
-                                 allow_blank=False, value=self.initial.behavior, compact=True, id='behavior')
+                    with Horizontal(classes='row'):
+                        yield Button('Standby', compact=True, id='mode-idle')
+                        yield Button('Sound', compact=True, id='mode-sound')
+                        yield Button('Auto', compact=True, id='mode-auto')
+                    yield Label('Color follows')
+                    with Horizontal(classes='row'):
+                        yield Button('Palette', compact=True, id='source-palette')
+                        yield Button('Frequency', compact=True, id='source-spectrum')
+                    yield Label('Palette', id='palette-label')
+                    yield Select([(scene_label(s, self.initial), s) for s in SCENES if s != 'spectrum'],
+                                 allow_blank=False, value=self.initial.scene, compact=True, id='scene')
                     yield Label('Brightness')
                     yield Slider(round(self.initial.brightness / 255 * 100), id='brightness-slider',
                                  tooltip='Drag and release · arrows ±1 · PgUp/PgDn ±10 · Home/End')
@@ -164,7 +175,7 @@ class Dashboard(App):
                     yield Static('RMS · 60s', classes='muted')
                     yield Static('', id='capture', markup=False)
                     yield Static('', id='timing', markup=False)
-                    yield Static('', id='spectrum', markup=False)
+            yield SpectrumPane(id='spectrum-pane', classes='panel')
             with Vertical(classes='panel', id='connection'):
                 yield Label('link', classes='eyebrow')
                 yield Static('Checking audio…', id='route', markup=False)
@@ -181,7 +192,7 @@ class Dashboard(App):
         self.sync_controls()
         self.refresh_status()
         self.refresh_audio()
-        self.set_interval(1, self.refresh_status)
+        self.set_interval(.2, self.refresh_status)
         self.set_interval(5, self.refresh_audio)
         self.query_one('#scene').focus()
 
@@ -193,6 +204,8 @@ class Dashboard(App):
             await self.backend.close()
 
     def sync_controls(self, keep_draft=False):
+        if not self.is_running:
+            return
         try:
             config = self.backend.settings()
         except (OSError, ValueError) as error:
@@ -201,8 +214,13 @@ class Dashboard(App):
         brightness_input = self.query_one('#brightness', Input)
         old_value = str(round(self.displayed.brightness / 255 * 100)) if self.displayed else None
         dirty = brightness_input.value != old_value
+        previous = self.displayed
         self.displayed = config
-        for name, value in [('scene', config.scene), ('behavior', config.behavior)]:
+        if previous is None or previous.color != config.color:
+            picker = self.query_one('#scene', Select)
+            with picker.prevent(Select.Changed):
+                picker.set_options([(scene_label(s, config), s) for s in SCENES if s != 'spectrum'])
+        for name, value in [('scene', config.scene)]:
             widget = self.query_one('#' + name, Select)
             with widget.prevent(Select.Changed):
                 widget.value = value
@@ -215,8 +233,17 @@ class Dashboard(App):
                 slider = self.query_one('#' + name + '-slider', Slider)
                 if not slider.dragging:
                     slider.value = value
+        self.show_choices(config)
         if self.backend.readonly:
             self.message('Read-only')
+
+    def show_choices(self, config):
+        for value in ('idle', 'sound', 'auto'):
+            self.query_one('#mode-' + value, Button).variant = 'primary' if config.behavior == value else 'default'
+        for value in ('palette', 'spectrum'):
+            self.query_one('#source-' + value, Button).variant = 'primary' if config.color_source == value else 'default'
+        self.query_one('#palette-label', Label).update('Standby palette' if config.color_source == 'spectrum' else 'Palette')
+        self.query_one('#spectrum-pane').display = config.color_source == 'spectrum'
 
     def message(self, text):
         self.query_one('#saved', Static).update(text)
@@ -251,7 +278,7 @@ class Dashboard(App):
             self.slider_pending['brightness'] = round(event.value * 255 / 100)
             self.query_one('#brightness', Input).value = str(event.value)
         else:
-            self.slider_pending.update(white=event.value, scene='workshop')
+            self.slider_pending.update(white=event.value, scene='workshop', color_source='palette')
         if self.slider_timer:
             self.slider_timer.stop()
         self.slider_timer = self.set_timer(.25, self.save_sliders)
@@ -291,8 +318,13 @@ class Dashboard(App):
 
     def on_button_pressed(self, event):
         actions = {'set-brightness': self.set_brightness, 'pick-color': self.action_color}
-        if event.button.id in actions:
-            actions[event.button.id]()
+        name = event.button.id or ''
+        if name.startswith('mode-'):
+            self.save(behavior=name.removeprefix('mode-'))
+        elif name.startswith('source-'):
+            self.save(color_source=name.removeprefix('source-'))
+        elif name in actions:
+            actions[name]()
 
     def action_auto(self):
         if not isinstance(self.screen, ColorPicker):
@@ -301,6 +333,14 @@ class Dashboard(App):
     def action_idle(self):
         if not isinstance(self.screen, ColorPicker):
             self.save(behavior='idle')
+
+    def action_sound(self):
+        if not isinstance(self.screen, ColorPicker):
+            self.save(behavior='sound')
+
+    def action_frequency(self):
+        if not isinstance(self.screen, ColorPicker):
+            self.save(color_source='spectrum')
 
     def action_color(self):
         if not self.backend.controls_available or isinstance(self.screen, ColorPicker):
@@ -314,9 +354,11 @@ class Dashboard(App):
 
     def color_chosen(self, color):
         if color is not None:
-            self.save(scene='custom', color=color)
+            self.save(scene='custom', color=color, color_source='palette')
 
     def refresh_status(self):
+        if not self.is_running or not self.query('#page'):
+            return
         self.data = d = self.backend.status()
         stale = d['stale']
         self.query_one('#link', Static).update(self.backend.connection_text)
@@ -334,21 +376,22 @@ class Dashboard(App):
                 pass
         self.query_one('#health', Static).update(Text(
             '● OFFLINE · awaiting telemetry' if stale else
-            f"● LIVE   {d.get('scene', '?').upper()}  · {d.get('brightness_percent', '?')}%",
+            f"● LIVE   {'FREQUENCY' if d.get('spectrum_active') else d.get('scene', '?').upper()}  · {d.get('brightness_percent', '?')}%",
             style=(self.current_theme.warning or '#ffbf69') if stale else
                   (self.current_theme.success or '#6ee7c4')))
-        mode = ('No signal data' if stale else 'Steady white' if d.get('scene') == 'workshop'
-                else 'Quiet → standby' if d.get('mode') == 'quiet'
+        mode = ('No signal data' if stale else ('Sound · waiting for audio' if d.get('behavior') == 'sound' else 'Quiet → standby') if d.get('mode') == 'quiet'
                 else 'Reactive' if d.get('mode') == 'sound' else 'Standby')
         self.query_one('#mode', Static).update(mode)
         rms = 0 if stale else d.get('rms', 0)
         db = max(-60, 20 * math.log10(max(rms, 0.000001)))
         self.query_one('#meter', ProgressBar).update(progress=db + 60)
         self.query_one('#level', Static).update('— dBFS' if stale else f'{db:5.1f} dBFS   /   RMS {rms:.4f}')
-        self.history.append(rms)
+        if time.monotonic() >= self.history_at:
+            self.history.append(rms)
+            self.history_at = time.monotonic() + 1
         self.query_one('#wave', Sparkline).data = list(self.history)
         age = d.get('sound_age_seconds')
-        quiet = d.get('quiet_seconds', 4)
+        quiet = d.get('quiet_seconds', 10)
         timing = ('No sound yet' if age is None else f'Silent {age:.0f}s')
         if d.get('mode') in ('sound', 'quiet') and d.get('behavior') == 'auto' and not stale:
             timing = f'Standby in {max(0, quiet - (age or 0)):.0f}s'
@@ -361,12 +404,7 @@ class Dashboard(App):
         self.query_one('#timing', Static).update('Timing —' if stale else
             f"Window {window:g} ms · request {request:g} ms\nLatency · end-to-end unmeasured"
             if window is not None and request is not None else 'Latency · end-to-end unmeasured')
-        spectral = self.query_one('#spectrum', Static)
-        spectral.display = d.get('scene') == 'spectrum'
-        spectral.update('Spectrum · laptop unavailable; rainbow fallback'
-            if stale or d.get('spectrum') != 'receiving' else
-            f"Spectrum · {d.get('spectrum_band') or 'quiet'} · FFT {d.get('spectrum_fft_ms', 0):g} ms\n"
-            f"SSH RTT {d.get('spectrum_ssh_rtt_ms', 0):g} ms · features {d.get('spectrum_age_ms', 0)} ms old")
+        self.query_one(SpectrumPane).show_status(d)
         frame_age = d.get('audio_age_seconds')
         age_text = 'no frames yet' if frame_age is None else f'frame {frame_age}s'
         self.query_one('#runtime', Static).update('Engine —' if stale else
@@ -386,7 +424,8 @@ class Dashboard(App):
                     f"sink {'ready' if graph['sink'] else 'missing'}\n"
                     f"USB  {', '.join(graph['usb']) or 'absent'} · {graph['inputs']} inputs"
                     )
-        self.query_one('#route', Static).update(text)
+        if self.is_running and self.query('#route'):
+            self.query_one('#route', Static).update(text)
 
 
 def main():
