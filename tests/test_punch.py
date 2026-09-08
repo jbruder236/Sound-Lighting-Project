@@ -10,6 +10,24 @@ from addy_bluetooth import LightState, output_preview
 
 
 class PunchTests(unittest.TestCase):
+    def test_amount_changes_contrast_without_slowing_attack_or_exceeding_cap(self):
+        features = {'rms': .08, 'bands': [1, 0, 0, 0, 0, 0]}
+        frames = []
+        for amount in (0, 50, 100):
+            punch = Punch(0)
+            punch.amount = amount
+            for i in range(1, 7):
+                punch.update(i/60, features, amount=amount)
+            self.assertGreater(punch.level, .98)
+            pixels = punch.frame(200, features, 1)
+            self.assertTrue(all(0 <= c <= 255 for rgb in pixels for c in rgb))
+            frames.append(pixels)
+        # Gentle spreads light into the tail; vivid keeps its narrower regions.
+        self.assertGreater(max(frames[0][-1]), max(frames[1][-1]))
+        self.assertGreater(max(frames[1][-1]), max(frames[2][-1]))
+        punch.update(.2, features, amount=0)
+        self.assertTrue(0 < punch.amount < 100)  # Slider edits glide, not jump.
+
     def test_fast_steps_are_smoothed_but_arrive_much_sooner(self):
         fast = flow = np.zeros((100, 3))
         desired = np.full((100, 3), 255.)

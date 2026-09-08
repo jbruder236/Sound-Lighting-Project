@@ -23,6 +23,7 @@ class Settings:
     white: int = 50
     color_source: str = 'palette'
     frequency_style: str = 'flow'
+    punch: int = 50
 
     @classmethod
     def parse(cls, values):
@@ -40,6 +41,8 @@ class Settings:
             raise ValueError('color_source must be palette or spectrum')
         if merged['frequency_style'] not in ('flow', 'punch'):
             raise ValueError('frequency_style must be flow or punch')
+        if type(merged['punch']) is not int or not 0 <= merged['punch'] <= 100:
+            raise ValueError('punch must be an integer from 0 to 100')
         color = merged['color']
         if (not isinstance(color, str) or len(color) != 7 or color[0] != '#'
                 or any(c not in '0123456789abcdefABCDEF' for c in color[1:])):

@@ -224,7 +224,7 @@ class AudioReader:
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--version', action='version', version=VERSION)
-    ap.add_argument('--config', help='Validated settings JSON; reloaded once per second')
+    ap.add_argument('--config', help='Validated settings JSON; hot-reloaded')
     ap.add_argument('--status-file', help='Write live health JSON here once per second')
     ap.add_argument('--scene', choices=SCENES, default='rainbow')
     ap.add_argument('--seconds', type=float, default=10, help='0 means continuous')
@@ -301,7 +301,7 @@ def main():
             if now >= next_settings:
                 config = watcher.reload()
                 state.quiet_seconds, state.threshold = config.quiet_seconds, config.threshold
-                next_settings = now + 1
+                next_settings = now + .1
             rms = reader.poll(now)
             max_rms = max(max_rms, rms)
             previous_mode = state.mode
@@ -310,7 +310,7 @@ def main():
             if state.mode != previous_mode:
                 print(f'Mode: {state.mode} (RMS={rms:.4f}).', flush=True)
             features = spectrum_reader.poll(now)
-            punch.update(now, features, config.threshold)
+            punch.update(now, features, config.threshold, config.punch)
             spectral_active = bool(config.color_source == 'spectrum' and state.mode == 'sound'
                                    and features and features['rms'] >= config.threshold
                                    and max(features['bands']) > 0)
@@ -341,6 +341,7 @@ def main():
                         'mode': state.mode, 'behavior': config.behavior, 'color': config.color,
                         'white': config.white, 'color_source': config.color_source,
                         'frequency_style': config.frequency_style,
+                        'punch': config.punch,
                         'spectrum_active': spectral_active,
                         'strip_preview': output_preview(previous_pixels, brightness),
                         'output_gain_percent': round(state.gain * 100),
