@@ -4,13 +4,16 @@ import asyncio
 from dataclasses import asdict
 import json
 import sys
+import time
 
 from dashboard_data import Backend
+from spectrum import SpectrumReader
 
 
 async def serve(backend=None):
     backend = backend or Backend()
     graph = {'error': 'Inspecting Pi audio…'}
+    spectrum = SpectrumReader()
 
     def send(value):
         print(json.dumps(value, allow_nan=False), flush=True)
@@ -28,9 +31,13 @@ async def serve(backend=None):
                 error = None
             except (OSError, ValueError) as problem:
                 config, error = None, str(problem)
+            status = backend.status()
+            musical = config and config.get('color_source') == 'spectrum'
+            if musical and not status.get('stale', True):
+                status.update(spectrum.status(time.monotonic()))
             send({'type': 'snapshot', 'protocol': 1, 'settings': config,
-                  'settings_error': error, 'status': backend.status(), 'audio': graph})
-            await asyncio.sleep(.2)
+                  'settings_error': error, 'status': status, 'audio': graph})
+            await asyncio.sleep(.05 if musical else .2)
 
     async def commands():
         reader = asyncio.StreamReader(limit=8192)

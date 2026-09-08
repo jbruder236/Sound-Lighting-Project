@@ -6,14 +6,15 @@ Screen { background: $background; color: $foreground; }
 #panels { height: auto; }
 .panel { border: round $primary; padding: 0 1; height: auto; }
 #controls { width: 1fr; margin-right: 1; border: round $light-border; }
-#monitor { width: 1fr; border: round $sound-border; }
+#telemetry-column { width: 1fr; height: auto; }
+#monitor { width: 100%; border: round $sound-border; }
 #connection { margin-top: 1; border: round $link-border; }
 #controls .eyebrow { color: $light-border; }
 #monitor .eyebrow { color: $sound-border; }
 #connection .eyebrow { color: $link-border; }
 #panels.narrow { layout: vertical; }
 #panels.narrow #controls { width: 100%; margin: 0 0 1 0; }
-#panels.narrow #monitor { width: 100%; }
+#panels.narrow #telemetry-column { width: 100%; }
 .eyebrow { text-style: bold; height: 1; }
 Label { color: $foreground; height: 1; }
 Select { margin: 0 0 1 0; }
@@ -45,11 +46,11 @@ ColorPicker { align: center middle; background: $background 80%; }
 
 #spectrum { height: auto; color: $secondary; }
 
-#spectrum-pane { margin-top: 1; border: round $secondary; }
+#spectrum-pane { margin-bottom: 1; border: round $secondary; }
 #spectrum-pane .eyebrow { color: $secondary; }
 #spectrum-control { height: auto; }
 BandChart { height: 7; }
 StripPreview { height: 1; margin-bottom: 1; }
-#source-spectrum { min-width: 11; }
+#effect-hint { margin-bottom: 1; }
 
-#punch-control { height: auto; }
+#punch-control, #white-control { height: auto; }

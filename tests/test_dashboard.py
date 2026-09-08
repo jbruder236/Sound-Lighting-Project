@@ -164,7 +164,7 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause(.5)
             self.assertEqual(slider.value, 12)
             self.assertEqual(self.backend.settings().brightness, 31)
-            self.backend.save(brightness=128)
+            self.backend.save(brightness=128, scene='workshop')
             app.sync_controls(keep_draft=True)
             self.assertEqual(slider.value, 12)  # An old ACK must not interrupt keys.
             app.query_one('#white-slider').focus()
@@ -192,12 +192,21 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             await pilot.click('#mode-sound')
             await pilot.pause()
             self.assertEqual(self.backend.settings().behavior, 'sound')
-            await pilot.click('#source-spectrum')
+            await pilot.click('#frequency-warble')
+            await pilot.pause()
+            self.assertEqual(self.backend.settings().frequency_style, 'warble')
+            self.assertEqual(self.backend.settings().behavior, 'sound')
+            await pilot.click('#frequency-flow')
             await pilot.pause()
             self.assertEqual(self.backend.settings().color_source, 'spectrum')
             self.assertTrue(app.query_one('#spectrum-pane').display)
             self.assertEqual(self.backend.settings().scene, 'rainbow')
-            self.assertEqual(app.query_one('#source-spectrum', Button).variant, 'primary')
+            self.assertEqual(app.query_one('#frequency-flow', Button).variant, 'primary')
+            await pilot.click('#frequency-warble')
+            await pilot.pause()
+            self.assertEqual(self.backend.settings().frequency_style, 'warble')
+            self.assertEqual(app.query_one('#frequency-warble', Button).variant, 'primary')
+            self.assertFalse(app.query_one('#punch-control').display)
             await pilot.click('#frequency-punch')
             await pilot.pause()
             self.assertEqual(self.backend.settings().frequency_style, 'punch')
@@ -235,7 +244,7 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(app.query_one('#spectrum-pane').display)
 
     async def test_slider_thumb_fine_drag_escape_and_disabled_capture(self):
-        self.backend.save(brightness=128)
+        self.backend.save(brightness=128, scene='workshop')
         app = Dashboard(self.backend)
         async with app.run_test(size=(100, 48)) as pilot:
             await pilot.pause()
@@ -260,6 +269,21 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             slider.disabled = True
             await pilot.pause()
             self.assertFalse(slider.dragging)
+
+    def test_frequency_meter_has_fast_attack_short_release_and_clears_offline(self):
+        from spectrum_pane import BandChart
+        chart = BandChart()
+        chart.updated = 0
+        chart.update_levels([.5, 0, 0, 0, 0, 0], True, now=.05)
+        self.assertEqual(chart.levels[0], .5)  # Percentages remain measured shares.
+        self.assertGreater(chart.shown[0], .5)
+        chart.update_levels([0]*6, True, now=.10)
+        self.assertTrue(0 < chart.shown[0] < chart.peaks[0])
+        chart.update_levels([0]*6, True, now=.35)
+        self.assertLess(chart.shown[0], .08)
+        chart.update_levels([1]*6, False, now=.4)
+        self.assertEqual(chart.shown, [0]*6)
+        self.assertEqual(chart.peaks, [0]*6)
 
     async def test_sound_history_fixed_scale_fine_bars_and_fast_sampling(self):
         from sound_history import SoundHistory
