@@ -7,6 +7,7 @@ PATH = '/run/sound-lighting/spectrum.json'
 BANDS = ('bass', 'body', 'mids', 'lead', 'air', 'shine')
 EDGES = (40, 160, 400, 1000, 2500, 6000, 12000)
 HUES = (0.07, 0.02, 0.94, 0.77, 0.62, 0.49)
+PUNCH_HUES = (0.0, 0.10, 0.32, 0.50, 0.66, 0.87)
 TTL = .75
 
 
@@ -39,7 +40,7 @@ class SpectrumReader:
 
     def poll(self, now):
         if now >= self.next_read:
-            self.next_read = now + .05
+            self.next_read = now + .02
             try:
                 with self.path.open('rb') as source:
                     raw = source.read(4097)

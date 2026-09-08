@@ -17,6 +17,7 @@ from settings import VERSION, SCENES, Settings, SettingsWatcher, atomic_json, re
 
 from spectrum import SpectrumReader, HUES
 from colors import white_rgb
+from punch import Punch, smooth_pixels
 
 TARGET = 'lighting_audio'
 RATE, CHUNK = 48000, 1024
@@ -36,7 +37,7 @@ class LightState:
         self.mode = 'idle'
         self.gain = 1.0
 
-    def update(self, now, rms, reactive=True, behavior='auto'):
+    def update(self, now, rms, reactive=True, behavior='auto', fast=False):
         dt = max(0.0, min(0.25, now - self.last_update))
         self.last_update = now
         if rms >= self.threshold:
@@ -55,6 +56,8 @@ class LightState:
             self.mode = 'idle'
         gain = 0.08 if self.mode == 'quiet' else 1.0
         gain_tau = 0.22 if gain < self.gain else 1.0
+        if fast:
+            gain_tau = .1 if gain < self.gain else .06
         self.gain += (gain - self.gain) * (1 - math.exp(-dt / gain_tau))
         target = float(self.mode == 'sound')
         self.mix += (target - self.mix) * (1 - math.exp(-dt / 1.2))
@@ -272,6 +275,7 @@ def main():
             initialized = True
         start = time.monotonic()
         state = LightState(start, initial.quiet_seconds, initial.threshold)
+        punch = Punch(start)
         config = initial
         next_settings = next_status = start
         last_render = start
@@ -292,22 +296,24 @@ def main():
             rms = reader.poll(now)
             max_rms = max(max_rms, rms)
             previous_mode = state.mode
-            state.update(now, rms, behavior=config.behavior)
+            fast = config.color_source == 'spectrum' and config.frequency_style == 'punch'
+            state.update(now, rms, behavior=config.behavior, fast=fast)
             if state.mode != previous_mode:
                 print(f'Mode: {state.mode} (RMS={rms:.4f}).', flush=True)
             features = spectrum_reader.poll(now)
+            punch.update(now, features, config.threshold)
             spectral_active = bool(config.color_source == 'spectrum' and state.mode == 'sound'
                                    and features and features['rms'] >= config.threshold
                                    and max(features['bands']) > 0)
             render_scene = 'spectrum' if spectral_active else config.scene
             if strip is not None:
-                desired = np.array(frame(args.count, now - start, state, render_scene,
-                                         config.color, config.white, features), dtype=float)
-                if previous_pixels is None:
-                    previous_pixels = desired
-                else:
-                    fade = 0.15 if state.mode == 'quiet' else 0.65
-                    previous_pixels += (desired - previous_pixels) * (1 - math.exp(-dt / fade))
+                pixels = (punch.frame(args.count, features, state.gain)
+                          if fast and features and state.mode != 'idle' else
+                          frame(args.count, now - start, state, render_scene,
+                                config.color, config.white, features))
+                desired = np.array(pixels, dtype=float)
+                previous_pixels = smooth_pixels(previous_pixels, desired, dt,
+                    fast=fast and state.mode != 'idle', quiet=state.mode == 'quiet')
                 brightness += (config.brightness - brightness) * (1 - math.exp(-dt / 0.65))
                 strip.setBrightness(round(brightness))
                 for i, rgb in enumerate(previous_pixels):
@@ -323,6 +329,7 @@ def main():
                         'brightness_percent': round(config.brightness / 255 * 100),
                         'mode': state.mode, 'behavior': config.behavior, 'color': config.color,
                         'white': config.white, 'color_source': config.color_source,
+                        'frequency_style': config.frequency_style,
                         'spectrum_active': spectral_active,
                         'strip_preview': output_preview(previous_pixels, brightness),
                         'output_gain_percent': round(state.gain * 100),
@@ -337,7 +344,7 @@ def main():
                         print(f'Status write failed: {error}', flush=True)
                         last_status_error = str(error)
                 next_status = now + (.2 if config.color_source == 'spectrum' else 1)
-            time.sleep(max(0, 1 / 30 - (time.monotonic() - now)))
+            time.sleep(max(0, 1 / (60 if fast else 30) - (time.monotonic() - now)))
         print(f'Audio blocks={reader.blocks}, max RMS={max_rms:.3f}, peak={reader.peak:.3f}', flush=True)
     finally:
         try:

@@ -18,6 +18,12 @@ class SettingsTests(unittest.TestCase):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Settings.parse(values)
 
+    def test_frequency_style_defaults_and_validation(self):
+        self.assertEqual(Settings.parse({}).frequency_style, 'flow')
+        self.assertEqual(Settings.parse({'frequency_style': 'punch'}).frequency_style, 'punch')
+        with self.assertRaises(ValueError):
+            Settings.parse({'frequency_style': 'strobe'})
+
     def test_custom_color_validation_and_old_config_defaults(self):
         self.assertEqual(Settings.parse({}).color, '#ff9646')
         self.assertEqual(Settings.parse({}).white, 50)

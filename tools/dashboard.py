@@ -226,7 +226,7 @@ class Dashboard(App):
                 widget.value = value
         if not keep_draft or not dirty:
             brightness_input.value = str(round(config.brightness / 255 * 100))
-        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider'):
+        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider, #spectrum-pane Button'):
             widget.disabled = not self.backend.controls_available
         if not self.slider_pending and not self.slider_saving:
             for name, value in [('brightness', round(config.brightness / 255 * 100)), ('white', config.white)]:
@@ -242,6 +242,8 @@ class Dashboard(App):
             self.query_one('#mode-' + value, Button).variant = 'primary' if config.behavior == value else 'default'
         for value in ('palette', 'spectrum'):
             self.query_one('#source-' + value, Button).variant = 'primary' if config.color_source == value else 'default'
+        for value in ('flow', 'punch'):
+            self.query_one('#frequency-' + value, Button).variant = 'primary' if config.frequency_style == value else 'default'
         self.query_one('#palette-label', Label).update('Standby palette' if config.color_source == 'spectrum' else 'Palette')
         self.query_one('#spectrum-pane').display = config.color_source == 'spectrum'
 
@@ -323,6 +325,8 @@ class Dashboard(App):
             self.save(behavior=name.removeprefix('mode-'))
         elif name.startswith('source-'):
             self.save(color_source=name.removeprefix('source-'))
+        elif name.startswith('frequency-'):
+            self.save(frequency_style=name.removeprefix('frequency-'))
         elif name in actions:
             actions[name]()
 
@@ -366,7 +370,7 @@ class Dashboard(App):
             self.query_one('#route', Static).update(self.backend.error)
         elif hasattr(self.backend, 'graph') and self.backend.graph != self.graph:
             self.refresh_audio()
-        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider'):
+        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider, #spectrum-pane Button'):
             widget.disabled = not self.backend.controls_available
         if not isinstance(self.screen, ColorPicker) and not isinstance(self.focused, Input):
             try:

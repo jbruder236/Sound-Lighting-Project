@@ -116,6 +116,7 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(app.query_one('#scene').disabled)
             self.assertTrue(app.query_one('#brightness-slider').disabled)
             self.assertTrue(app.query_one('#white-slider').disabled)
+            self.assertTrue(app.query_one('#frequency-punch').disabled)
             app.action_idle()
             await pilot.pause()
             self.assertEqual(self.backend.settings().behavior, 'auto')
@@ -184,12 +185,20 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(app.query_one('#spectrum-pane').display)
             self.assertEqual(self.backend.settings().scene, 'rainbow')
             self.assertEqual(app.query_one('#source-spectrum', Button).variant, 'primary')
+            await pilot.click('#frequency-punch')
+            await pilot.pause()
+            self.assertEqual(self.backend.settings().frequency_style, 'punch')
+            self.assertEqual(app.query_one('#frequency-punch', Button).variant, 'primary')
+            self.assertEqual(self.backend.settings().behavior, 'sound')
             atomic_json(self.status, dict(updated_at=time.time(), color_source='spectrum',
+                frequency_style='punch',
                 scene='rainbow', spectrum='receiving', spectrum_bands=[.8, .1, .1, 0, 0, 0],
                 spectrum_active=True, strip_preview=['#ff8000', '#ff3000']))
             app.refresh_status()
             self.assertEqual(app.query_one(BandChart).levels[0], .8)
             self.assertEqual(app.query_one(StripPreview).colors[0], '#ff8000')
+            self.assertEqual(app.query_one(BandChart).band_colors[2], '#14ff00')
+            self.assertIn('Punch', str(app.query_one('#spectrum-control', Static).render()))
             self.status.unlink()
             app.refresh_status()
             self.assertEqual(app.query_one(BandChart).levels, [0.] * 6)
