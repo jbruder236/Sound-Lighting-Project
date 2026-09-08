@@ -76,8 +76,9 @@ hover/focus highlighting, and a warm/cool track make controls easier to read. CL
   dims to an 8% glow multiplier in about two seconds. After the ten-second quiet
   timeout, standby fades back in. Sound returns automatically at any point.
   Standby bypasses this dim. Sound remains dim while silent instead of entering standby.
-- **Signal:** RMS level in dBFS, a −60 to 0 dBFS meter, and 60 seconds of relative
-  history sampled once per second. Fast transients between status updates may be missed.
+- **Signal:** RMS level in dBFS, a −60 to 0 dBFS meter, and a 12-second scrolling
+  history sampled five times per second. The graph uses a fixed −54 to −6 dBFS
+  scale, 32 bar-height steps, and subtle column ridges. Fast transients between status updates may be missed.
 - **Capture:** frames arriving, configured 48 kHz, 16-bit mono, retry count, analyzed
   windows, largest observed sample peak, and windows containing near-clipping samples.
   These counters start over with the engine. Windows are sampled for analysis;

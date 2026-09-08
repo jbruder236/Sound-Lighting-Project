@@ -30,7 +30,7 @@ async def serve(backend=None):
                 config, error = None, str(problem)
             send({'type': 'snapshot', 'protocol': 1, 'settings': config,
                   'settings_error': error, 'status': backend.status(), 'audio': graph})
-            await asyncio.sleep(.2 if config and config.get('color_source') == 'spectrum' else 1)
+            await asyncio.sleep(.2)
 
     async def commands():
         reader = asyncio.StreamReader(limit=8192)

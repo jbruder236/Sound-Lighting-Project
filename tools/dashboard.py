@@ -21,6 +21,7 @@ from settings import SCENES, VERSION, Settings
 from slider import Slider
 from palette_preview import scene_label
 from spectrum_pane import SpectrumPane
+from sound_history import SoundHistory
 
 
 class ColorPicker(ModalScreen[str | None]):
@@ -171,8 +172,8 @@ class Dashboard(App):
                     yield Static('—', id='mode')
                     yield Static('Waiting for telemetry', id='level')
                     yield ProgressBar(total=60, show_eta=False, show_percentage=False, id='meter')
-                    yield Sparkline(list(self.history), summary_function=max, id='wave')
-                    yield Static('RMS · 60s', classes='muted')
+                    yield SoundHistory(list(self.history), id='wave')
+                    yield Static('RMS · 12s', classes='muted')
                     yield Static('', id='capture', markup=False)
                     yield Static('', id='timing', markup=False)
             yield SpectrumPane(id='spectrum-pane', classes='panel')
@@ -183,6 +184,7 @@ class Dashboard(App):
         yield Footer()
 
     def on_mount(self):
+        self.query_one('#wave').tooltip = '12-second history · 5 updates/s · fixed −54 to −6 dBFS scale · fine ridged bars'
         self.query_one('#spectrum').tooltip = ('Laptop FFT: 2,048 samples at 48 kHz (42.67 ms), up to 20 Hz. '
             'SSH RTT and feature freshness are not sound-to-light latency.')
         self.query_one('#timing').tooltip = ('Analysis window and requested PipeWire buffer only. '
@@ -202,6 +204,10 @@ class Dashboard(App):
     async def on_unmount(self):
         if hasattr(self.backend, 'close'):
             await self.backend.close()
+
+    def on_descendant_blur(self, event):
+        if isinstance(event.widget, Slider):
+            self.call_after_refresh(self.sync_controls, keep_draft=True)
 
     def sync_controls(self, keep_draft=False):
         if not self.is_running:
@@ -231,7 +237,7 @@ class Dashboard(App):
         if not self.slider_pending and not self.slider_saving:
             for name, value in [('brightness', round(config.brightness / 255 * 100)), ('white', config.white), ('punch', config.punch)]:
                 slider = self.query_one('#' + name + '-slider', Slider)
-                if not slider.dragging:
+                if not slider.dragging and not slider.has_focus:
                     slider.value = value
         self.show_choices(config)
         if self.backend.readonly:
@@ -402,9 +408,14 @@ class Dashboard(App):
         db = max(-60, 20 * math.log10(max(rms, 0.000001)))
         self.query_one('#meter', ProgressBar).update(progress=db + 60)
         self.query_one('#level', Static).update('— dBFS' if stale else f'{db:5.1f} dBFS   /   RMS {rms:.4f}')
-        if time.monotonic() >= self.history_at:
+        tick = int(time.monotonic() * 5)
+        if tick > self.history_at:
+            # Keep the time axis steady if a render tick is delayed. Missing
+            # samples are blank, rather than stretching old audio across time.
+            missed = min(59, max(0, tick-self.history_at-1)) if self.history_at else 0
+            self.history.extend([0.] * missed)
             self.history.append(rms)
-            self.history_at = time.monotonic() + 1
+            self.history_at = tick
         self.query_one('#wave', Sparkline).data = list(self.history)
         age = d.get('sound_age_seconds')
         quiet = d.get('quiet_seconds', 10)

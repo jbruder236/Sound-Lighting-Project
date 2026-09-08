@@ -2,6 +2,11 @@
 
 ## Experimental · feature/spectral-color
 
+**Sound graph:** Five updates per second and a 12-second scrolling window.
+A fixed dB scale, 32 vertical steps, averaged narrow buckets, and subtle ridges
+make movement finer without rescaling the whole graph when one peak arrives.
+Telemetry now updates at 5 Hz in every lighting mode; LED behavior is unchanged.
+
 **Flow:** Now uses the Punch engine at a fixed 45%. The separate Punch slider
 keeps its saved amount. Controls and layout are unchanged.
 

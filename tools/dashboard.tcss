@@ -28,7 +28,7 @@ Input { width: 1fr; }
 ProgressBar { height: 1; margin: 1 0; }
 ProgressBar Bar { width: 1fr; }
 ProgressBar .bar--bar { color: $sound-border; }
-#wave { height: 3; background: $background; }
+#wave { height: 4; background: $background; }
 #wave .sparkline--min-color { color: $secondary; }
 #wave .sparkline--max-color { color: $accent; }
 .muted { color: $text-muted; height: auto; }

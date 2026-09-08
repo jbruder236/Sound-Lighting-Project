@@ -164,7 +164,13 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause(.5)
             self.assertEqual(slider.value, 12)
             self.assertEqual(self.backend.settings().brightness, 31)
+            self.backend.save(brightness=128)
+            app.sync_controls(keep_draft=True)
+            self.assertEqual(slider.value, 12)  # An old ACK must not interrupt keys.
             app.query_one('#white-slider').focus()
+            await pilot.pause()
+            self.assertEqual(slider.value, 50)  # Catch up after leaving the slider.
+            self.backend.save(brightness=31)
             await pilot.press('end')
             await pilot.pause(.5)
             self.assertEqual(self.backend.settings().scene, 'workshop')
@@ -254,6 +260,32 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             slider.disabled = True
             await pilot.pause()
             self.assertFalse(slider.dragging)
+
+    async def test_sound_history_fixed_scale_fine_bars_and_fast_sampling(self):
+        from sound_history import SoundHistory
+        from unittest.mock import patch
+        app = Dashboard(self.backend)
+        async with app.run_test(size=(100, 48)) as pilot:
+            await pilot.pause()
+            chart = app.query_one('#wave', SoundHistory)
+            chart.data = [.02] * 60
+            before = chart.render().plain.splitlines()
+            self.assertEqual(len(before), 4)
+            self.assertTrue(any(c in '▁▂▃▄▅▆▇' for c in ''.join(before)))
+            chart.data = [1.] + [.02] * 59
+            after = chart.render().plain.splitlines()
+            self.assertEqual([row[-1] for row in before], [row[-1] for row in after])
+            chart.data = [0.] * 60
+            self.assertFalse(chart.render().plain.strip())
+            app.history.clear()
+            app.history_at = 500
+            for now in (100.21, 100.41, 100.61, 100.81, 101.01):
+                with patch('dashboard.time.monotonic', return_value=now):
+                    app.refresh_status()
+            self.assertEqual(len(app.history), 5)
+            with patch('dashboard.time.monotonic', return_value=101.05):
+                app.refresh_status()
+            self.assertEqual(len(app.history), 5)  # No duplicate within a tick.
 
     async def test_remote_dashboard_exit_reaps_ssh_child(self):
         from remote_backend import RemoteBackend

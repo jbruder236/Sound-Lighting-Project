@@ -356,7 +356,7 @@ def main():
                     if str(error) != last_status_error:
                         print(f'Status write failed: {error}', flush=True)
                         last_status_error = str(error)
-                next_status = now + (.2 if config.color_source == 'spectrum' else 1)
+                next_status = now + .2
             time.sleep(max(0, 1 / (60 if fast else 30) - (time.monotonic() - now)))
         print(f'Audio blocks={reader.blocks}, max RMS={max_rms:.3f}, peak={reader.peak:.3f}', flush=True)
     finally:
