@@ -2,11 +2,24 @@
 
 ## Experimental · feature/spectral-color
 
+**Punch:** Flow / Punch buttons in the Frequency pane. Punch adds six vivid hues,
+strong musical contrast, 35/90 ms pixel smoothing, and up to 60 fps rendering.
+Master brightness still caps output. Quiet feature frames stay dark; Flow remains
+available. Band visualization follows the selected style. No additional Pi FFT.
+
+**Checks:** 46 tests across core and optional UI environments on laptop and Pi;
+10-second live Punch test saw all six bands and changing RGB output at the existing
+40% cap. Clean service shutdown cleared LEDs and released capture resources.
+
+**Wiring:** [Second-strip pin plan](docs/second-strip.md), including common grounds,
+separate positive rails, and the required move from PCM to dual PWM. The live
+single-strip GPIO21 configuration is unchanged.
+
 **Controls:** Visible Standby / Sound / Auto buttons and Palette / Frequency color
 selection. Auto uses ten seconds since last audio; Sound stays dim while silent.
 White follows mode brightness and remains steady in Standby.
 
-**Checks:** 41 automated tests across core and optional UI environments; live pane,
+**Earlier checks:** 41 automated tests across core and optional UI environments; live pane,
 mode controls, output preview, and preference restoration with one unchanged LED
 PID. Auto correctly stayed reactive with ongoing audio; the 10-second silence
 boundary is covered by the state-machine test.

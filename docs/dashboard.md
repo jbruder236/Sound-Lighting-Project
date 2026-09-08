@@ -160,7 +160,7 @@ reconnection, acknowledged writes, no offline replay, and child-process cleanup.
 
 ## Return to 1.0
 
-The `color`, `white`, and `color_source` settings and extra scenes are specific to this branch.
+The `color`, `white`, `color_source`, and `frequency_style` settings and extra scenes are specific to this branch.
 Back up your settings and remove these fields before returning to `master`:
 
 ```sh
@@ -175,6 +175,7 @@ settings = json.loads(path.read_text())
 settings.pop('color', None)
 settings.pop('white', None)
 settings.pop('color_source', None)
+settings.pop('frequency_style', None)
 if settings.get('behavior') == 'sound':
     settings['behavior'] = 'auto'
 if settings.get('scene') not in ('rainbow', 'aurora', 'workshop'):

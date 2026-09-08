@@ -2,7 +2,8 @@
 
 `feature/spectral-color` builds on `TUI`. Select **Frequency** under **Color follows** in the dashboard,
 with **Auto** or **Sound** enabled, to let musical frequency balance shape the strip’s color.
-Brightness and the existing gentle movement remain independent.
+Choose **Flow** for the existing gentle look or **Punch** for faster, stronger musical contrast.
+The master brightness slider caps both styles.
 
 ## Is it viable?
 
@@ -40,8 +41,27 @@ notes, instruments, key, or emotion. Colors are an artistic mapping:
 Energy is summed per band and square-root compressed so quieter parts can share
 the palette. Broad regions of the strip favor neighboring bands; stronger bands
 spread farther across it. Saturation stays high, and the existing 0.65-second
-pixel smoothing softens changes. This remains ambient lighting rather than a
-fast spectrum analyzer. DC and very quiet input do not steer the color.
+pixel smoothing softens changes. This describes **Flow**, the default style. DC and very quiet input do not steer the color.
+
+## Flow / Punch
+
+The Frequency pane has two style buttons; Standby / Sound / Auto remain the three
+operating modes. **Punch** maps bass → red, body → gold, mids → green, lead → cyan,
+air → blue, and shine → magenta. Strong bands claim colored regions across the
+span. A small hue variation adds depth to sustained notes; there is no timed strobe.
+
+Laptop RMS controls a fast adaptive envelope (25 ms attack, 120 ms release), with
+stronger contrast from roughly 2.5% to 100% of the master cap. Per-pixel smoothing
+uses 35 ms on rising channels and 90 ms on falling channels, versus Flow's 650 ms.
+These are filter time constants, **not measured end-to-end latency**. Punch renders
+at up to 60 fps; the existing FFT feed remains up to 20 Hz with 42.67 ms windows.
+No extra FFT runs on the Pi. Timing still includes capture, SSH, and Bluetooth.
+
+Quiet feature frames remain dark instead of briefly flashing the standby palette.
+Missing/expired features fall back to the selected palette; Pi audio still controls
+mute dimming and the Auto timeout. Switching styles preserves mode, palette, and
+brightness. `frequency_style` persists as `flow` or `punch`; older settings default
+to Flow. Standby remains the selected ambient palette in either style.
 
 ## Three modes, one visible control row
 
@@ -55,7 +75,7 @@ fast spectrum analyzer. DC and very quiet input do not steer the color.
 **Color follows: Palette / Frequency** is separate from operating mode. Frequency
 opens its own pane, showing six colored band shares and Hz ranges, the actual
 sampled Pi color commands, and whether audio or the standby palette is controlling
-output. These are up to **5 Hz snapshots** of a 20 Hz feature feed and 30 Hz
+output. These are up to **5 Hz snapshots** of a 20 Hz feature feed and 30 Hz (Flow) / 60 Hz (Punch)
 renderer. RGB preview includes smoothing and master brightness; terminal color
 is approximate and does not measure the strip. Stale telemetry clears the preview.
 
@@ -161,6 +181,7 @@ from settings import atomic_json
 p = Path('/etc/sound-lighting.json')
 settings = json.loads(p.read_text())
 settings.pop('color_source', None)
+settings.pop('frequency_style', None)
 if settings.get('behavior') == 'sound':
     settings['behavior'] = 'auto'
 if settings.get('scene') == 'spectrum':
@@ -173,7 +194,7 @@ sudo systemctl restart addy-bluetooth.service
 git switch TUI
 ```
 
-This branch adds `color_source` and the `sound` behavior. Legacy `scene: spectrum`
+This branch adds `color_source`, `frequency_style`, and the `sound` behavior. Legacy `scene: spectrum`
 settings migrate to a Rainbow standby palette with Frequency enabled.
 The expired feature file is harmless on TUI. The optional environment may remain.
 

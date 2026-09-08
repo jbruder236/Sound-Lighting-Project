@@ -18,7 +18,9 @@ Laptop audio ────────────┤
 A laptop FFT gives bass, mids, and highs their own colors; the Pi keeps its quiet
 and standby behavior. Choose **Frequency + Auto** in the dashboard. A dedicated pane shows the frequency
 balance and outgoing colors; palette options have swatches. Standby, Sound, and
-Auto are visible buttons. On this branch, Auto uses a **10-second** quiet window.
+Auto are visible buttons. Choose **Flow** for gentle ribbons or **Punch** for fast,
+vivid musical contrast. Auto uses a **10-second** quiet window.
+Adding another span? See the [second-strip wiring plan](docs/second-strip.md).
 
 ## Light it up
 
