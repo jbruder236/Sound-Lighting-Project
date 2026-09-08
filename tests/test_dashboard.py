@@ -295,7 +295,7 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             chart.data = [.02] * 60
             before = chart.render().plain.splitlines()
             self.assertEqual(len(before), 4)
-            self.assertTrue(any(c in '▁▂▃▄▅▆▇' for c in ''.join(before)))
+            self.assertTrue(any(0x2801 <= ord(c) <= 0x28ff for c in ''.join(before)))
             chart.data = [1.] + [.02] * 59
             after = chart.render().plain.splitlines()
             self.assertEqual([row[-1] for row in before], [row[-1] for row in after])
@@ -310,6 +310,13 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             with patch('dashboard.time.monotonic', return_value=101.05):
                 app.refresh_status()
             self.assertEqual(len(app.history), 5)  # No duplicate within a tick.
+            with patch('dashboard.time.monotonic', return_value=101.45):
+                app.refresh_status()
+            self.assertGreater(app.history[-2], 0)  # A late redraw isn't silence.
+            self.status.unlink()
+            with patch('dashboard.time.monotonic', return_value=102.05):
+                app.refresh_status()
+            self.assertEqual(list(app.history)[-3:], [0, 0, 0])
 
     async def test_remote_dashboard_exit_reaps_ssh_child(self):
         from remote_backend import RemoteBackend

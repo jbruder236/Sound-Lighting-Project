@@ -3,6 +3,8 @@ import colorsys
 import math
 import time
 from rich.text import Text
+from textual.color import Color
+from microchart import column, meter, gradient
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.widgets import Label, Static
@@ -33,40 +35,40 @@ class BandChart(Static):
                 # Expand small shares on a fixed visual scale, without changing
                 # the measured percentages or the LED color calculation.
                 target = value ** .65
-                tau = .025 if target > self.shown[i] else .14
+                tau = .015 if target > self.shown[i] else .09
                 self.shown[i] += (target-self.shown[i]) * (1-math.exp(-dt/tau))
-                self.peaks[i] = max(self.shown[i], self.peaks[i] - dt * .7)
+                self.peaks[i] = max(self.shown[i], self.peaks[i] - dt * 1.1)
         self.refresh()
 
     def render(self):
         width = self.content_size.width
         text = Text(no_wrap=True)
+        colors = getattr(self.app, 'music_colors', self.band_colors)
+        _, background = self.background_colors
         if width >= 60:
             cell = width // 6
-            for row in range(4, 0, -1):
-                for level, peak, color in zip(self.shown, self.peaks, self.band_colors):
-                    fill = max(0, min(8, round((level * 4 - (row - 1)) * 8)))
-                    glyph = ' ▁▂▃▄▅▆▇█'[fill]
-                    if not fill and peak > .03 and math.ceil(peak * 4) == row:
-                        glyph = '─'
-                    for x in range(cell):
-                        text.append(glyph if 0 < x < cell-1 else ' ',
-                                    style=color + (' dim' if x % 2 else ''))
+            ramps = [gradient(background.blend(Color.parse(c), .40).hex, c, 4) for c in colors]
+            for row in range(3, -1, -1):
+                for level, peak, ramp in zip(self.shown, self.peaks, ramps):
+                    glyph = column(level, level, row, 4, peak)
+                    text.append(' ' + glyph * (cell-2) + ' ', style=ramp[row])
                 text.append('\n')
             for words in (BANDS, RANGES):
-                for label, color in zip(words, self.band_colors):
+                for label, color in zip(words, colors):
                     text.append(label.center(cell), style=color)
                 text.append('\n')
         else:
             bar = max(2, width - 24)
-            for name, hz, raw, level, peak, color in zip(BANDS, RANGES, self.levels, self.shown, self.peaks, self.band_colors):
-                text.append(f'{name:5} {hz:7} ', style=color)
+            for name, hz, raw, level, peak, color in zip(BANDS, RANGES, self.levels, self.shown, self.peaks, colors):
+                text.append(f'{name:5} ', style=color)
+                text.append(f'{hz:7} ', style='dim')
+                ramp = gradient(background.blend(Color.parse(color), .4).hex, color, bar)
                 for x in range(bar):
                     fill = max(0, min(8, round((level * bar - x) * 8)))
-                    glyph = ' ▏▎▍▌▋▊▉█'[fill]
-                    if not fill:
-                        glyph = '│' if peak > .03 and x == min(bar-1, int(peak*bar)) else '·'
-                    text.append(glyph, style=color + (' dim' if x % 2 or not fill else ''))
+                    glyph = meter(fill)
+                    if not fill and peak > .03 and x == min(bar-1, int(peak*bar)):
+                        glyph = '⠂'
+                    text.append(glyph, style=ramp[x])
                 text.append(f' {raw:4.0%}\n', style=color)
         return text
 
@@ -95,7 +97,7 @@ class SpectrumPane(Vertical):
         yield Static('', id='spectrum', classes='muted', markup=False)
 
     def on_mount(self):
-        self.query_one(BandChart).tooltip = 'Measured energy shares · fixed expanded bar scale · fast attack, 140 ms release · falling peak marks · live feed up to 20 Hz'
+        self.query_one(BandChart).tooltip = 'Measured energy shares · fixed expanded bar scale · fast attack, 90 ms release · falling peak marks · live feed up to 20 Hz'
         self.query_one(StripPreview).tooltip = 'Sampled smoothed RGB commands, including brightness. Screen colors approximate the LEDs.'
 
     def show_status(self, data):

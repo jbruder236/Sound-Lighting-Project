@@ -241,6 +241,6 @@ The music pane sits beside the controls in a wide terminal and above the sound
 history in a narrow one. It reads fresh FFT features over SSH at up to **20 Hz**,
 independently of the engine’s 5 Hz status writer. No additional FFT or faster
 status-file writes are needed on the Pi. The bars use a fixed expanded scale,
-25 ms attack, 140 ms release, fractional block steps, subtle ridges, and falling
+15 ms attack, 90 ms release, fine Braille dots, theme gradients, and falling
 peak marks. Percentages remain measured band shares; display smoothing never
 changes the LEDs. Stale input clears the bars and peak marks.

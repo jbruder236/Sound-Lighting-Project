@@ -2,6 +2,11 @@
 
 ## Experimental · feature/spectral-color
 
+**Chart polish:** Fine dotted charts, btop’s sound gradient, and softer musical
+band hues replace solid blocks. Meters respond with 15 ms attack and 90 ms
+release. Brief redraw delays no longer create false silence spikes in the sound
+history. Lighting behavior and saved controls stay unchanged.
+
 **Warble:** Flow’s balanced musical colors with gentle ripples from the center of
 each physical strip. Tone shapes ripple speed; shading stays within 18% and
 master brightness still caps output. Quiet dimming and standby remain automatic.

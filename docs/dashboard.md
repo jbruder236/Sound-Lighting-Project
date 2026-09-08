@@ -198,5 +198,10 @@ The dashboard environment can remain installed for your next visit to `TUI`.
 
 The warm/cool slider appears when **Palette → White** is selected. Musical effects
 keep the standby colorway available without showing unrelated white controls.
-The band display updates at up to 20 Hz over SSH, with crisp fractional blocks,
-short release, and falling peak marks; the sound history retains its 12-second view.
+The band display updates at up to 20 Hz over SSH, with crisp Braille dots,
+90 ms release, and falling peak marks; the sound history retains its 12-second view.
+
+Charts use btop’s installed CPU gradient for sound history and softer theme hues
+for the musical bands. Two dot columns per terminal cell preserve fine detail.
+Brief UI scheduling gaps are visually interpolated; real silence, disconnection,
+and long gaps still clear. Musical meters use 15 ms attack and 90 ms release.

@@ -30,8 +30,8 @@ ProgressBar { height: 1; margin: 1 0; }
 ProgressBar Bar { width: 1fr; }
 ProgressBar .bar--bar { color: $sound-border; }
 #wave { height: 4; background: $background; }
-#wave .sparkline--min-color { color: $secondary; }
-#wave .sparkline--max-color { color: $accent; }
+#wave .sparkline--min-color { color: $chart-low; }
+#wave .sparkline--max-color { color: $chart-high; }
 .muted { color: $text-muted; height: auto; }
 #timing { height: auto; color: $text-muted; }
 #capture { margin-top: 1; height: auto; }

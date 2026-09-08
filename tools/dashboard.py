@@ -121,6 +121,7 @@ class Dashboard(App):
                                    (directory / 'btop.theme').read_text()))
         except OSError:
             btop = {}
+        self.music_colors = [colors[k] for k in ('red', 'yellow', 'green', 'cyan', 'accent', 'magenta')]
         self.register_theme(Theme(name='omarchy', primary=btop.get('hi_fg', colors['accent']),
             secondary=colors['cyan'], accent=colors['magenta'],
             background=btop.get('main_bg', colors['background']),
@@ -131,6 +132,8 @@ class Dashboard(App):
                 'light-border': btop.get('cpu_box', colors['magenta']),
                 'sound-border': btop.get('mem_box', colors['green']),
                 'link-border': btop.get('net_box', colors['red']),
+                'chart-low': btop.get('cpu_start', colors['cyan']),
+                'chart-high': btop.get('cpu_end', colors['magenta']),
             }))
         self.theme = 'omarchy'
 
@@ -195,7 +198,7 @@ class Dashboard(App):
     def on_mount(self):
         for name, tip in dict(flow='Flow · responsive musical colors, balanced at 45%', warble='Warble · Flow with gentle ripples from the center of each strip', punch='Punch · musical colors with adjustable intensity').items():
             self.query_one('#frequency-' + name).tooltip = tip
-        self.query_one('#wave').tooltip = '12-second history · 5 updates/s · fixed −54 to −6 dBFS scale · fine ridged bars'
+        self.query_one('#wave').tooltip = '12-second history · 5 updates/s · fixed −54 to −6 dBFS scale · fine dotted trace'
         self.query_one('#spectrum').tooltip = ('Laptop FFT: 2,048 samples at 48 kHz (42.67 ms), up to 20 Hz. '
             'SSH RTT and feature freshness are not sound-to-light latency.')
         self.query_one('#timing').tooltip = ('Analysis window and requested PipeWire buffer only. '
@@ -431,10 +434,13 @@ class Dashboard(App):
         self.query_one('#level', Static).update('— dBFS' if stale else f'{db:5.1f} dBFS   /   RMS {rms:.4f}')
         tick = int(time.monotonic() * 5)
         if tick > self.history_at:
-            # Keep the time axis steady if a render tick is delayed. Missing
-            # samples are blank, rather than stretching old audio across time.
+            # Interpolate a brief scheduling gap, not a false silence spike.
+            # Long gaps and unavailable telemetry stay blank.
             missed = min(59, max(0, tick-self.history_at-1)) if self.history_at else 0
-            self.history.extend([0.] * missed)
+            previous = self.history[-1] if self.history else 0.
+            self.history.extend(
+                previous + (rms-previous) * (i+1)/(missed+1)
+                if not stale and missed <= 2 else 0. for i in range(missed))
             self.history.append(rms)
             self.history_at = tick
         self.query_one('#wave', Sparkline).data = list(self.history)
