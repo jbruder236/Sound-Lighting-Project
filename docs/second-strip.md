@@ -1,6 +1,8 @@
 # Two spans
 
 The current service drives one 100-pixel WS2811 span on **GPIO21 / physical pin40**.
+Each identical ALITOVE reel is 24V, 10m, 600 physical LEDs in 100 six-LED groups;
+see the [verified label and hardware details](setup.md#hardware).
 The following is the planned dual-PWM wiring, **not an enabled second output**.
 
 | Output | BCM GPIO | Physical header pin |

@@ -11,8 +11,21 @@ This setup targets user `pi` and the existing repository path on the Pi.
 
 ## Hardware
 
-Current installation: Raspberry Pi 4, a 32-foot WS2811 span, 100 addressable groups.
-Check the actual IC/group count for another strip; several LEDs may form one group.
+Current installation: Raspberry Pi 4 and an ALITOVE WS2811 strip. The supplied
+reel label confirms **24V DC, 10m (32.8ft), 60 LEDs/m, IP67, and 14.4W/m**.
+That is **600 physical RGB LEDs**, but the matching
+[manufacturer specification](https://alitove.com/products/alitove-ws2811-addressable-rgb-led-strip-light)
+uses **100 WS2811 ICs, each controlling six LEDs together**. The existing
+`--count 100` already addresses the full strip at its native resolution: one
+independent color every 10cm (about 4 inches). A count of 600 would not unlock
+individual control of those six LEDs. Two identical spans provide 200 independent
+groups / 1,200 physical LEDs once the second output is implemented.
+
+The reel label specifies **red = +24V, green = DIN, black = GND**; confirm the
+input end using the strip arrows. Rated power totals **144W / 6A at 24V per reel**,
+not a measured draw at the current animation/brightness. Each reel retains its
+own 24V supply, with common DC grounds and separate positive rails. See the
+[second-strip plan](second-strip.md).
 
 ```text
 Pi breakout                      3.3V → 5V logic buffer
@@ -27,7 +40,7 @@ LED supply positive ────────────────────
 
 Use a non-inverting 5V buffer such as a properly enabled 74AHCT125. Match the LED
 supply to the strip's printed voltage; WS2811 alone does not establish it. Power
-the strip externally. Never feed 12V into the Pi. Wire with power disconnected;
+the strip externally. Never feed the strip's 24V into the Pi. Wire with power disconnected;
 connect DIN following the arrows. Size the supply and power wiring for the span.
 Software brightness is not a current limiter.
 
