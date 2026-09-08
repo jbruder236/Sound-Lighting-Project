@@ -39,8 +39,8 @@ class Settings:
             merged.update(scene='rainbow', color_source='spectrum')
         if merged['color_source'] not in ('palette', 'spectrum'):
             raise ValueError('color_source must be palette or spectrum')
-        if merged['frequency_style'] not in ('flow', 'punch'):
-            raise ValueError('frequency_style must be flow or punch')
+        if merged['frequency_style'] not in ('flow', 'warble', 'punch'):
+            raise ValueError('frequency_style must be flow, warble, or punch')
         if type(merged['punch']) is not int or not 0 <= merged['punch'] <= 100:
             raise ValueError('punch must be an integer from 0 to 100')
         color = merged['color']

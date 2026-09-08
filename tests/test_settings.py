@@ -20,7 +20,8 @@ class SettingsTests(unittest.TestCase):
 
     def test_frequency_style_defaults_and_validation(self):
         self.assertEqual(Settings.parse({}).frequency_style, 'flow')
-        self.assertEqual(Settings.parse({'frequency_style': 'punch'}).frequency_style, 'punch')
+        for style in ('punch', 'warble'):
+            self.assertEqual(Settings.parse({'frequency_style': style}).frequency_style, style)
         with self.assertRaises(ValueError):
             Settings.parse({'frequency_style': 'strobe'})
         self.assertEqual(Settings.parse({}).punch, 50)

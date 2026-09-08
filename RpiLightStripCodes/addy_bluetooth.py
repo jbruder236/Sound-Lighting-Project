@@ -18,6 +18,7 @@ from settings import VERSION, SCENES, Settings, SettingsWatcher, atomic_json, re
 from spectrum import SpectrumReader, HUES
 from colors import white_rgb
 from punch import Punch, smooth_pixels
+from warble import Warble
 
 TARGET = 'lighting_audio'
 RATE, CHUNK = 48000, 1024
@@ -285,6 +286,7 @@ def main():
         start = time.monotonic()
         state = LightState(start, initial.quiet_seconds, initial.threshold)
         punch = Punch(start)
+        warble = Warble()
         config = initial
         next_settings = next_status = start
         last_render = start
@@ -311,7 +313,8 @@ def main():
                 print(f'Mode: {state.mode} (RMS={rms:.4f}).', flush=True)
             features = spectrum_reader.poll(now)
             punch.update(now, features, config.threshold,
-                         45 if config.frequency_style == 'flow' else config.punch)
+                         config.punch if config.frequency_style == 'punch' else 45)
+            warble.update(dt, punch.level, punch.bands)
             spectral_active = bool(config.color_source == 'spectrum' and state.mode == 'sound'
                                    and features and features['rms'] >= config.threshold
                                    and max(features['bands']) > 0)
@@ -321,6 +324,8 @@ def main():
                           if fast and features and state.mode != 'idle' else
                           frame(pixel_count, now - start, state, render_scene,
                                 config.color, config.white, features))
+                if fast and features and state.mode != 'idle' and config.frequency_style == 'warble':
+                    pixels = warble.frame(pixels, args.count)
                 desired = np.array(pixels, dtype=float)
                 previous_pixels = smooth_pixels(previous_pixels, desired, dt,
                     fast=bool(fast and features and state.mode != 'idle'), quiet=state.mode == 'quiet')
