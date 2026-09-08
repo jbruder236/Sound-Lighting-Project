@@ -5,7 +5,8 @@ Screen { background: $background; color: $foreground; }
 #health { height: 1; margin-bottom: 1; }
 #panels { height: auto; }
 .panel { border: round $primary; padding: 0 1; height: auto; }
-#controls { width: 1fr; margin-right: 1; border: round $light-border; }
+#control-column { width: 1fr; height: auto; margin-right: 1; }
+#controls { width: 100%; border: round $light-border; }
 #telemetry-column { width: 1fr; height: auto; }
 #monitor { width: 100%; border: round $sound-border; }
 #connection { margin-top: 1; border: round $link-border; }
@@ -13,7 +14,7 @@ Screen { background: $background; color: $foreground; }
 #monitor .eyebrow { color: $sound-border; }
 #connection .eyebrow { color: $link-border; }
 #panels.narrow { layout: vertical; }
-#panels.narrow #controls { width: 100%; margin: 0 0 1 0; }
+#panels.narrow #control-column { width: 100%; margin: 0 0 1 0; }
 #panels.narrow #telemetry-column { width: 100%; }
 .eyebrow { text-style: bold; height: 1; }
 Label { color: $foreground; height: 1; }
@@ -51,6 +52,16 @@ ColorPicker { align: center middle; background: $background 80%; }
 #spectrum-control { height: auto; }
 BandChart { height: 7; }
 StripPreview { height: 1; margin-bottom: 1; }
-#effect-hint { margin-bottom: 1; }
+#effect-hint { margin-bottom: 0; }
 
 #punch-control, #white-control { height: auto; }
+
+#controls .row { margin-bottom: 0; }
+#controls Select { margin: 0; width: 1fr; }
+#controls Slider { height: 2; padding: 0 0 1 0; }
+#brightness-entry { margin-top: 1; }
+#brightness-entry Label { width: 1fr; }
+#brightness { width: 6; margin-right: 1; }
+#set-brightness, #pick-color { width: 9; min-width: 9; }
+#palette-label { margin-top: 1; }
+#saved { min-height: 0; }

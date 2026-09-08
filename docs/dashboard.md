@@ -205,3 +205,8 @@ Charts use btop’s installed CPU gradient for sound history and softer theme hu
 for the musical bands. Two dot columns per terminal cell preserve fine detail.
 Brief UI scheduling gaps are visually interpolated; real silence, disconnection,
 and long gaps still clear. Musical meters use 15 ms attack and 90 ms release.
+
+The light panel groups palette/color and brightness/entry controls on shared rows.
+Link details sit underneath. Music meters use bold solid fills; the dotted RMS
+history uses a fixed −46 to −16 dBFS scale with nonlinear peak emphasis. This is
+a visual exaggeration: the RMS number and level meter retain their measured values.

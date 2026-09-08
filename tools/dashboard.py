@@ -143,41 +143,46 @@ class Dashboard(App):
             yield Static(self.backend.connection_text, id='link', markup=False)
             yield Static('Connecting…', id='health')
             with Horizontal(id='panels'):
-                with Vertical(id='controls', classes='panel'):
-                    yield Label('light', classes='eyebrow')
-                    yield Label('Mode')
-                    with Horizontal(classes='row'):
-                        yield Button('Standby', compact=True, id='mode-idle')
-                        yield Button('Sound', compact=True, id='mode-sound')
-                        yield Button('Auto', compact=True, id='mode-auto')
-                    yield Label('Effect')
-                    with Horizontal(classes='row'):
-                        yield Button('Palette', compact=True, id='source-palette')
-                        yield Button('Flow', compact=True, id='frequency-flow')
-                        yield Button('Warble', compact=True, id='frequency-warble')
-                        yield Button('Punch', compact=True, id='frequency-punch')
-                    yield Static('', id='effect-hint', classes='muted')
-                    with Vertical(id='punch-control'):
-                        yield Label('Punch · gentle ↔ vivid')
-                        yield Slider(self.initial.punch, id='punch-slider',
-                                     tooltip='Live intensity · fast attack at every setting')
-                    yield Label('Palette', id='palette-label')
-                    yield Select([(scene_label(s, self.initial), s) for s in SCENES if s != 'spectrum'],
-                                 allow_blank=False, value=self.initial.scene, compact=True, id='scene')
-                    yield Label('Brightness')
-                    yield Slider(round(self.initial.brightness / 255 * 100), id='brightness-slider',
-                                 tooltip='Live drag · Shift-drag fine · arrows ±1 · wheel ±2 · PgUp/PgDn ±10 · Esc cancels drag')
-                    with Vertical(id='white-control'):
-                        yield Label('White · warm ↔ cool')
-                        yield Slider(self.initial.white, id='white-slider', gradient=('#ff7828', '#bedcff'),
-                                     tooltip='Moving this selects steady White. RGB tint, not calibrated Kelvin.')
-                    with Horizontal(classes='row'):
-                        yield Input(str(round(self.initial.brightness / 255 * 100)), type='integer',
-                                    id='brightness', max_length=3, compact=True,
-                                    tooltip='Exact brightness % · Enter to apply')
-                        yield Button('Apply %', compact=True, id='set-brightness')
-                        yield Button('Color…', compact=True, id='pick-color')
-                    yield Static('', id='saved', markup=False)
+                with Vertical(id='control-column'):
+                    with Vertical(id='controls', classes='panel'):
+                        yield Label('light', classes='eyebrow')
+                        yield Label('Mode')
+                        with Horizontal(classes='row'):
+                            yield Button('Standby', compact=True, id='mode-idle')
+                            yield Button('Sound', compact=True, id='mode-sound')
+                            yield Button('Auto', compact=True, id='mode-auto')
+                        yield Label('Effect')
+                        with Horizontal(classes='row'):
+                            yield Button('Palette', compact=True, id='source-palette')
+                            yield Button('Flow', compact=True, id='frequency-flow')
+                            yield Button('Warble', compact=True, id='frequency-warble')
+                            yield Button('Punch', compact=True, id='frequency-punch')
+                        yield Static('', id='effect-hint', classes='muted')
+                        with Vertical(id='punch-control'):
+                            yield Label('Punch · gentle ↔ vivid')
+                            yield Slider(self.initial.punch, id='punch-slider',
+                                         tooltip='Live intensity · fast attack at every setting')
+                        yield Label('Palette', id='palette-label')
+                        with Horizontal(classes='row', id='palette-entry'):
+                            yield Select([(scene_label(s, self.initial), s) for s in SCENES if s != 'spectrum'],
+                                         allow_blank=False, value=self.initial.scene, compact=True, id='scene')
+                            yield Button('Color…', compact=True, id='pick-color')
+                        with Horizontal(classes='row', id='brightness-entry'):
+                            yield Label('Brightness')
+                            yield Input(str(round(self.initial.brightness / 255 * 100)), type='integer',
+                                        id='brightness', max_length=3, compact=True, tooltip='Exact % · Enter to apply')
+                            yield Button('Apply %', compact=True, id='set-brightness')
+                        yield Slider(round(self.initial.brightness / 255 * 100), id='brightness-slider',
+                                     tooltip='Live drag · Shift-drag fine · arrows ±1 · wheel ±2 · PgUp/PgDn ±10 · Esc cancels drag')
+                        with Vertical(id='white-control'):
+                            yield Label('White · warm ↔ cool')
+                            yield Slider(self.initial.white, id='white-slider', gradient=('#ff7828', '#bedcff'),
+                                         tooltip='Moving this selects steady White. RGB tint, not calibrated Kelvin.')
+                        yield Static('', id='saved', markup=False)
+                    with Vertical(classes='panel', id='connection'):
+                        yield Label('link', classes='eyebrow')
+                        yield Static('Checking audio…', id='route', markup=False)
+                        yield Static('', id='runtime', markup=False)
                 with Vertical(id='telemetry-column'):
                     yield SpectrumPane(id='spectrum-pane', classes='panel')
                     with Vertical(id='monitor', classes='panel'):
@@ -186,19 +191,15 @@ class Dashboard(App):
                         yield Static('Waiting for telemetry', id='level')
                         yield ProgressBar(total=60, show_eta=False, show_percentage=False, id='meter')
                         yield SoundHistory(list(self.history), id='wave')
-                        yield Static('RMS · 12s', classes='muted')
+                        yield Static('RMS · 12s · peak emphasis', classes='muted')
                         yield Static('', id='capture', markup=False)
                         yield Static('', id='timing', markup=False)
-            with Vertical(classes='panel', id='connection'):
-                yield Label('link', classes='eyebrow')
-                yield Static('Checking audio…', id='route', markup=False)
-                yield Static('', id='runtime', markup=False)
         yield Footer()
 
     def on_mount(self):
         for name, tip in dict(flow='Flow · responsive musical colors, balanced at 45%', warble='Warble · Flow with gentle ripples from the center of each strip', punch='Punch · musical colors with adjustable intensity').items():
             self.query_one('#frequency-' + name).tooltip = tip
-        self.query_one('#wave').tooltip = '12-second history · 5 updates/s · fixed −54 to −6 dBFS scale · fine dotted trace'
+        self.query_one('#wave').tooltip = '12-second history · 5 updates/s · peak-emphasized −46 to −16 dBFS display · numeric RMS unchanged'
         self.query_one('#spectrum').tooltip = ('Laptop FFT: 2,048 samples at 48 kHz (42.67 ms), up to 20 Hz. '
             'SSH RTT and feature freshness are not sound-to-light latency.')
         self.query_one('#timing').tooltip = ('Analysis window and requested PipeWire buffer only. '

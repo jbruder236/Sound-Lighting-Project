@@ -17,9 +17,9 @@ class SoundHistory(Sparkline):
             start = min(len(data)-1, x * len(data) // (width * 2))
             end = max(start+1, (x+1) * len(data) // (width * 2))
             bucket = data[start:end]
-            rms = sum(bucket) / len(bucket)
+            rms = max(bucket)  # Preserve brief peaks when several samples share a dot.
             db = 20 * math.log10(max(1e-9, rms))
-            levels.append(max(0, min(1, (db + 54) / 48)))
+            levels.append(max(0, min(1, (db + 46) / 30)) ** 1.6)
         text = Text(no_wrap=True)
         shades = gradient(low.hex, high.hex, height)
         for row in reversed(range(height)):

@@ -4,7 +4,7 @@ import math
 import time
 from rich.text import Text
 from textual.color import Color
-from microchart import column, meter, gradient
+from microchart import gradient
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.widgets import Label, Static
@@ -47,10 +47,13 @@ class BandChart(Static):
         _, background = self.background_colors
         if width >= 60:
             cell = width // 6
-            ramps = [gradient(background.blend(Color.parse(c), .40).hex, c, 4) for c in colors]
+            ramps = [gradient(background.blend(Color.parse(c), .75).hex, c, 4) for c in colors]
             for row in range(3, -1, -1):
                 for level, peak, ramp in zip(self.shown, self.peaks, ramps):
-                    glyph = column(level, level, row, 4, peak)
+                    fill = max(0, min(8, round((level * 4 - row) * 8)))
+                    glyph = ' ▁▂▃▄▅▆▇█'[fill]
+                    if not fill and peak > .03 and math.ceil(peak*4)-1 == row:
+                        glyph = '─'
                     text.append(' ' + glyph * (cell-2) + ' ', style=ramp[row])
                 text.append('\n')
             for words in (BANDS, RANGES):
@@ -62,12 +65,12 @@ class BandChart(Static):
             for name, hz, raw, level, peak, color in zip(BANDS, RANGES, self.levels, self.shown, self.peaks, colors):
                 text.append(f'{name:5} ', style=color)
                 text.append(f'{hz:7} ', style='dim')
-                ramp = gradient(background.blend(Color.parse(color), .4).hex, color, bar)
+                ramp = gradient(background.blend(Color.parse(color), .75).hex, color, bar)
                 for x in range(bar):
                     fill = max(0, min(8, round((level * bar - x) * 8)))
-                    glyph = meter(fill)
+                    glyph = ' ▏▎▍▌▋▊▉█'[fill]
                     if not fill and peak > .03 and x == min(bar-1, int(peak*bar)):
-                        glyph = '⠂'
+                        glyph = '│'
                     text.append(glyph, style=ramp[x])
                 text.append(f' {raw:4.0%}\n', style=color)
         return text

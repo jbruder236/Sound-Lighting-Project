@@ -2,6 +2,12 @@
 
 ## Experimental · feature/spectral-color
 
+**Compact controls:** Color picker alongside the palette; exact brightness beside
+its label; shorter sliders and less padding. Link details use the space below the
+light panel. Music meters regain solid fills and stronger gradients. The dotted
+RMS trace emphasizes peaks on a fixed −46 to −16 dBFS visual scale, preserving
+short peaks when samples share a column. Numeric measurements remain unchanged.
+
 **Chart polish:** Fine dotted charts, btop’s sound gradient, and softer musical
 band hues replace solid blocks. Meters respond with 15 ms attack and 90 ms
 release. Brief redraw delays no longer create false silence spikes in the sound
