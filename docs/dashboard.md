@@ -40,7 +40,8 @@ resizes, and moves between workspaces normally; it no longer forces a floating s
 | Mode / S / R / A | Standby keeps the selected palette; Sound stays reactive and dims while quiet; Auto returns to standby after 10 seconds without detected audio. |
 | Color follows / F | Palette holds the selected colorway; Frequency opens the spectrum pane and lets musical bands choose colors during sound. |
 | Palette | Every option shows colored swatches. With Frequency selected, this is the standby/fallback palette. |
-| Brightness | Drag the slider and release; arrows change 1%, PgUp/PgDn 10%, Home/End reach the limits. Exact entry + Enter or Apply % also works. Zero stays dark, including after reboot. |
+| Brightness | Drag for live updates; Shift-drag is finer. Arrows change 1%, PgUp/PgDn 10%, Home/End reach the limits. Exact entry + Enter or Apply % also works. Zero stays dark, including after reboot. |
+| Punch · gentle ↔ vivid | Shown in Frequency → Punch. 0 is gentle, 50 is the balanced tuning, 100 restores original Punch; fast attack stays constant. |
 | White · warm ↔ cool | Drag or use arrow keys to select steady White and adjust its tint. 0 is warm, 100 cool; 50 preserves the original Workshop white. |
 | Color / C | A separate dialog with a hex field, live swatch, and eight presets. Apply selects Custom. Cancel or Escape changes nothing. |
 | Q | Close only the dashboard. |
@@ -56,10 +57,14 @@ The custom scene uses the existing slow waves and gentle sound response. It hold
 the hue you picked; brightness still varies across the span. White (the `workshop` scene in the CLI) is the constant utility-light option in Standby.
 Its slider blends RGB tints, not calibrated Kelvin temperatures. The terminal
 swatch is an approximation of the LEDs. `sudo lights white 25` also selects White.
-Saved settings apply within a second and fade smoothly. The top strip shows what
+The Pi checks saved settings every 100 ms and fades changes smoothly; network
+and control acknowledgement can add delay. The top strip shows what
 the engine has actually applied. Remote changes refresh the controls while keeping
-an unfinished brightness edit intact. Slider drags save on release; rapid keyboard
-adjustments are coalesced, with one slider write in flight. CLI changes appear in live status too.
+an unfinished brightness edit intact. Slider drags update live, with one acknowledged write in flight and only the newest
+values waiting. Release sends the final value; Escape restores the value from before
+the drag. Shift-drag gives fine control; wheel changes a focused slider by 2%
+(Shift-wheel 1%), while unfocused sliders let the page scroll. Bigger hit areas,
+hover/focus highlighting, and a warm/cool track make controls easier to read. CLI changes appear in live status too.
 
 ![Palette dropdown preview](images/palettes.png)
 
@@ -160,7 +165,7 @@ reconnection, acknowledged writes, no offline replay, and child-process cleanup.
 
 ## Return to 1.0
 
-The `color`, `white`, `color_source`, and `frequency_style` settings and extra scenes are specific to this branch.
+The `color`, `white`, `color_source`, `frequency_style`, and `punch` settings and extra scenes are specific to this branch.
 Back up your settings and remove these fields before returning to `master`:
 
 ```sh
@@ -176,6 +181,7 @@ settings.pop('color', None)
 settings.pop('white', None)
 settings.pop('color_source', None)
 settings.pop('frequency_style', None)
+settings.pop('punch', None)
 if settings.get('behavior') == 'sound':
     settings['behavior'] = 'auto'
 if settings.get('scene') not in ('rainbow', 'aurora', 'workshop'):

@@ -45,19 +45,31 @@ pixel smoothing softens changes. This describes **Flow**, the default style. DC 
 
 ## Flow / Punch
 
-The Frequency pane has two style buttons; Standby / Sound / Auto remain the three
+The Frequency pane has two style buttons and a **Punch** amount slider; Standby / Sound / Auto remain the three
 operating modes. **Punch** maps bass → red, body → gold, mids → green, lead → cyan,
 air → blue, and shine → magenta. Strong bands claim colored regions across the
 span. Broader overlapping regions and gentler band emphasis reduce abrupt color
 takeovers. Reduced hue variation and a softer brightness curve calm the movement
 without slowing the attack; there is no timed strobe.
 
-Laptop RMS controls a fast adaptive envelope (25 ms attack, 160 ms release), with
+At the default **50% Punch**, laptop RMS controls a fast adaptive envelope
+(25 ms attack, 160 ms release), with
 stronger contrast from roughly 2.5% to 100% of the master cap. Per-pixel smoothing
 uses 35 ms on rising channels and 90 ms on falling channels, versus Flow's 650 ms.
 These are filter time constants, **not measured end-to-end latency**. Punch renders
 at up to 60 fps; the existing FFT feed remains up to 20 Hz with 42.67 ms windows.
 No extra FFT runs on the Pi. Timing still includes capture, SSH, and Bluetooth.
+
+**Punch amount** ranges from **0 (gentle)** through **50 (balanced, the previous
+calmer tuning)** to **100 (original Punch)**. It changes band emphasis, region
+width, hue variation, brightness contrast, and release (200–120 ms). The 25 ms
+attack and 35/90 ms pixel filters stay constant. Zero is gentle reactive lighting,
+not off; master brightness remains the output cap. Amount changes glide over a
+120 ms time constant. The saved integer `punch` defaults to 50 in older configs.
+
+Sliders send coalesced live updates during dragging and persist the final value.
+The Pi checks settings every 100 ms; SSH and existing brightness fades still add
+delay. Adjusting Punch preserves Flow/Punch selection, operating mode, and brightness.
 
 Quiet feature frames remain dark instead of briefly flashing the standby palette.
 Missing/expired features fall back to the selected palette; Pi audio still controls
@@ -184,6 +196,7 @@ p = Path('/etc/sound-lighting.json')
 settings = json.loads(p.read_text())
 settings.pop('color_source', None)
 settings.pop('frequency_style', None)
+settings.pop('punch', None)
 if settings.get('behavior') == 'sound':
     settings['behavior'] = 'auto'
 if settings.get('scene') == 'spectrum':
@@ -196,7 +209,7 @@ sudo systemctl restart addy-bluetooth.service
 git switch TUI
 ```
 
-This branch adds `color_source`, `frequency_style`, and the `sound` behavior. Legacy `scene: spectrum`
+This branch adds `color_source`, `frequency_style`, `punch`, and the `sound` behavior. Legacy `scene: spectrum`
 settings migrate to a Rainbow standby palette with Frequency enabled.
 The expired feature file is harmless on TUI. The optional environment may remain.
 

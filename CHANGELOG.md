@@ -2,6 +2,17 @@
 
 ## Experimental · feature/spectral-color
 
+**Punch amount:** A live 0–100 slider in Frequency → Punch. 50 preserves the
+balanced tuning, 100 restores original Punch, and 0 is gentler. Fast attack stays
+constant; amount glides between settings. Saved across reboot; brightness stays capped.
+
+**Slider feel:** Larger grab areas, live dragging, fine Shift-drag, focused wheel
+control, Escape to undo a drag, and a warm/cool gradient. Writes are coalesced with
+one acknowledgement in flight; the engine now checks settings every 100 ms.
+Core and UI checks passed (50 unique tests). Live SSH controls reached 0/50/100
+with the same engine PID, then restored the original style and brightness.
+Network delay still varies; the 100 ms polling interval is not end-to-end latency.
+
 **Punch refinement:** Gentler band emphasis, broader color regions, half the hue
 variation, and softer brightness drops (160 ms release). The 25 ms attack,
 35/90 ms pixel smoothing, 60 fps target, and master brightness cap stay the same.
