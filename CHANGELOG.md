@@ -2,6 +2,10 @@
 
 ## Experimental · feature/spectral-color
 
+**Punch refinement:** Gentler band emphasis, broader color regions, half the hue
+variation, and softer brightness drops (160 ms release). The 25 ms attack,
+35/90 ms pixel smoothing, 60 fps target, and master brightness cap stay the same.
+
 **Two strips:** GPIO18 + GPIO13, 100 addressable groups each, one continuous
 200-pixel canvas. Shared PWM driver, brightness, and shutdown cleanup. Opt-in
 setup backs up system files and reserves PWM by disabling onboard analog audio;

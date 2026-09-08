@@ -34,7 +34,7 @@ class PunchTests(unittest.TestCase):
             punch.update(i/60, {'rms': .006})
         quiet = punch.frame(100, {'bands': [1, 0, 0, 0, 0, 0]}, 1)
         self.assertGreater(max(map(max, loud)), 240)
-        self.assertLess(max(map(max, quiet)), 20)
+        self.assertLess(max(map(max, quiet)), 30)
         punch.update(1, None)
         self.assertLess(punch.level, .04)
 

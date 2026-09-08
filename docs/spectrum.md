@@ -48,9 +48,11 @@ pixel smoothing softens changes. This describes **Flow**, the default style. DC 
 The Frequency pane has two style buttons; Standby / Sound / Auto remain the three
 operating modes. **Punch** maps bass → red, body → gold, mids → green, lead → cyan,
 air → blue, and shine → magenta. Strong bands claim colored regions across the
-span. A small hue variation adds depth to sustained notes; there is no timed strobe.
+span. Broader overlapping regions and gentler band emphasis reduce abrupt color
+takeovers. Reduced hue variation and a softer brightness curve calm the movement
+without slowing the attack; there is no timed strobe.
 
-Laptop RMS controls a fast adaptive envelope (25 ms attack, 120 ms release), with
+Laptop RMS controls a fast adaptive envelope (25 ms attack, 160 ms release), with
 stronger contrast from roughly 2.5% to 100% of the master cap. Per-pixel smoothing
 uses 35 ms on rising channels and 90 ms on falling channels, versus Flow's 650 ms.
 These are filter time constants, **not measured end-to-end latency**. Punch renders

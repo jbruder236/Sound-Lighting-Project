@@ -16,26 +16,26 @@ class Punch:
         rms = features['rms'] if features else 0
         self.reference = max(.025, rms, self.reference * math.exp(-dt / 6))
         target = min(1, rms / self.reference) if rms >= threshold else 0
-        tau = .025 if target > self.level else .12
+        tau = .025 if target > self.level else .16
         self.level += (target - self.level) * (1 - math.exp(-dt / tau))
 
     def frame(self, count, features, gain):
-        # Squaring reverses the analyzer's compression: strong notes claim more
-        # space. Each band has a colored region, with a weaker full-span wash.
-        bands = [b * b for b in features['bands']]
+        # Gentle emphasis lets neighboring bands share space instead of a
+        # small change in the loudest band abruptly taking over the span.
+        bands = [b ** 1.5 for b in features['bands']]
         peak = max(max(bands), 1e-9)
         palette = [colorsys.hsv_to_rgb(h, 1, 1) for h in PUNCH_HUES]
         result = []
         for i in range(count):
             position = i / max(1, count - 1)
-            weights = [b * (.15 + .85 * math.exp(-((position - j / 5) / .19) ** 2))
+            weights = [b * (.20 + .80 * math.exp(-((position - j / 5) / .24) ** 2))
                        for j, b in enumerate(bands)]
             rgb = [sum(w * c[k] for w, c in zip(weights, palette)) for k in range(3)]
             hue, _, _ = colorsys.rgb_to_hsv(*rgb)
             # Slight tonal variation keeps long single-note spans colorful.
-            hue = (hue + .08 * (position - .5) * self.level) % 1
+            hue = (hue + .04 * (position - .5) * self.level) % 1
             strength = max(weights) / peak
-            value = (.025 + .975 * self.level ** 1.6 * strength) * gain
+            value = (.025 + .975 * self.level ** 1.35 * strength) * gain
             result.append(tuple(round(c * 255) for c in colorsys.hsv_to_rgb(hue, 1, value)))
         return result
 
