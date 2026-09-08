@@ -43,9 +43,9 @@ sudo bash install/install.sh
 ```
 
 It starts in colorful standby and follows music when it arrives. Silence dims the
-glow quickly, then colorful standby returns after **four seconds of quiet**.
+glow quickly, then colorful standby returns after **ten seconds of quiet**.
 No desktop login or USB sound card needed. Existing installations retain their
-saved timeout; use `sudo lights quiet 4` for this branch’s shorter default.
+saved timeout; use `sudo lights quiet 10` for this branch’s default.
 
 After installation, make changes while the lights keep running:
 
@@ -75,7 +75,7 @@ forced kills and power loss cannot guarantee clearing.
 
 - **Color that stays colorful.** Fully saturated bands, slowly drifting along the strip.
 - **Music without the flicker.** Fast changes in sound soften into a gentle glow.
-- **Light between songs.** A brief dim settles into colorful standby after four seconds.
+- **Light between songs.** A brief dim settles into colorful standby after ten seconds.
 - **At home on Omarchy.** Launcher icon, your active theme, and automatic Pi reconnection.
 - **A cord less.** AUX feeds the speaker while Bluetooth carries the same audio to the Pi.
 - **No-fuss controls.** Change scenes, brightness, and sound behavior without a restart.

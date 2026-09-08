@@ -6,6 +6,11 @@
 selection. Auto uses ten seconds since last audio; Sound stays dim while silent.
 White follows mode brightness and remains steady in Standby.
 
+**Checks:** 41 automated tests across core and optional UI environments; live pane,
+mode controls, output preview, and preference restoration with one unchanged LED
+PID. Auto correctly stayed reactive with ongoing audio; the 10-second silence
+boundary is covered by the state-machine test.
+
 **Visualization:** A dedicated conditional Frequency pane, six color-coded bands,
 Hz ranges, smoothed Pi output preview, and 5 Hz telemetry. Palette dropdowns show
 color swatches. Standby uses the chosen palette. Old Spectrum scenes migrate safely.

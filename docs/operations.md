@@ -2,8 +2,8 @@
 
 v1.0 supports the documented Pi 4 installation, its GBR WS2811 strip, and the
 PipeWire laptop-to-Pi audio link. The defaults keep the approved saturated Rainbow
-scene. The `TUI` branch adds a quick dim followed by standby after four seconds
-of silence; the tagged v1.0 default remains 15 seconds.
+scene. This feature branch adds visible Standby / Sound / Auto controls, with a
+quick dim followed by standby after ten seconds of silence in Auto; the tagged v1.0 default remains 15 seconds.
 
 ## Change the mood
 
@@ -15,9 +15,10 @@ sudo lights scene rainbow
 sudo lights scene aurora
 sudo lights scene workshop
 sudo lights brightness 80
-sudo lights mode idle
+sudo lights mode standby
+sudo lights mode sound
 sudo lights mode auto
-sudo lights quiet 4
+sudo lights quiet 10
 sudo lights threshold 0.003
 ```
 
@@ -25,15 +26,17 @@ sudo lights threshold 0.003
 | --- | --- |
 | Rainbow | The original saturated bands, slowly moving along the full span. |
 | Aurora | Broad cyan, blue, and violet curtains, drifting at different speeds. |
-| Workshop | Steady warm-white utility light, unaffected by the music. |
+| Workshop | Uniform white; steady in Standby, follows brightness response in Sound/Auto. |
 
 Changes apply within a second and fade over roughly two seconds. Brightness is a
 percentage here; the engine's `--brightness` argument remains 0–255. Settings are
 saved in `/etc/sound-lighting.json` and survive restarts, upgrades, and reboots.
 Installer defaults never overwrite an existing settings file.
 
-`mode idle` keeps animation but ignores audio. `mode auto` returns to automatic
-sound detection. Workshop remains steady in either mode. Brightness 0 intentionally
+`mode standby` (`idle` remains an alias) keeps animation but ignores audio.
+`mode sound` reacts and stays dim while silent; `mode auto` returns to the
+selected palette ten seconds after the last detected audio. White stays uniform
+and follows the same mode brightness behavior. Brightness 0 intentionally
 turns output dark; it is saved too. To stop the process and clear the strip, use
 `sudo systemctl stop addy-bluetooth.service`.
 
@@ -49,7 +52,8 @@ A status older than five seconds is marked **STALE** and returns a nonzero exit 
 No status file means the service is stopped, starting, or not installed.
 
 `input receiving` means audio frames are arriving; they may contain silence.
-`mode sound` means recent samples crossed the loudness threshold. `input waiting`
+Status `mode sound` means recent samples crossed the loudness threshold;
+`mode quiet` means the sound mode is dimmed while waiting for new input. `input waiting`
 means capture has not yet established a healthy stream. Idle animation continues.
 
 Useful diagnostics:
