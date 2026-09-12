@@ -1,0 +1,2 @@
+# Optional laptop FFT publisher; no new Pi engine dependency.
+numpy==2.5.3

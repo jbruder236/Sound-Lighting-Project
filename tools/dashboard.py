@@ -1,0 +1,481 @@
+#!/usr/bin/env python3
+"""A terminal remote for the single running Sound Lighting service."""
+import argparse
+from collections import deque
+import math
+import re
+from pathlib import Path
+import tomllib
+import time
+
+from rich.text import Text
+from textual import on, work
+from textual.app import App, ComposeResult
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.screen import ModalScreen
+from textual.theme import Theme
+from textual.widgets import Button, Footer, Input, Label, ProgressBar, Select, Sparkline, Static
+
+from dashboard_data import Backend
+from settings import SCENES, VERSION, Settings
+from slider import Slider
+from palette_preview import scene_label
+from spectrum_pane import SpectrumPane
+from sound_history import SoundHistory
+
+
+class ColorPicker(ModalScreen[str | None]):
+    """A separate window: editing never touches the running lights."""
+    BINDINGS = [('escape', 'cancel', 'Cancel')]
+
+    def __init__(self, color):
+        super().__init__()
+        self.color = color
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id='picker'):
+            yield Label('color', classes='eyebrow')
+            yield Static(id='swatch')
+            yield Label('Hex · #RRGGBB')
+            yield Input(self.color, id='hex', max_length=7)
+            with Horizontal(classes='row'):
+                for name, color in [('Amber', 'ff9646'), ('Rose', 'ff2870'), ('Ice', '00dcca'), ('Violet', '8040ff')]:
+                    yield Button(name, id='preset-' + color, compact=True)
+            with Horizontal(classes='row'):
+                for name, color in [('Gold', 'ffd040'), ('Mint', '46ffb0'), ('Coral', 'ff6046'), ('Blue', '3070ff')]:
+                    yield Button(name, id='preset-' + color, compact=True)
+            yield Static('', id='color-error')
+            with Horizontal(classes='row'):
+                yield Button('Cancel', compact=True, id='cancel')
+                yield Button('Apply', compact=True, id='save-color', variant='primary')
+
+    def on_mount(self):
+        self.preview(self.color)
+        self.query_one('#hex', Input).focus()
+
+    def preview(self, value):
+        try:
+            color = Settings.parse({'color': value}).color
+        except ValueError:
+            self.query_one('#color-error', Static).update('Enter six hex digits, e.g. #ff9646')
+            self.query_one('#save-color', Button).disabled = True
+            return
+        self.color = color
+        self.query_one('#swatch', Static).styles.background = color
+        self.query_one('#color-error', Static).update(f'{color.upper()} · Custom scene')
+        self.query_one('#save-color', Button).disabled = False
+
+    @on(Input.Changed, '#hex')
+    def changed(self, event):
+        self.preview(event.value)
+
+    def on_button_pressed(self, event):
+        event.stop()
+        name = event.button.id
+        if name.startswith('preset-'):
+            self.query_one('#hex', Input).value = '#' + name.removeprefix('preset-')
+        elif name == 'save-color':
+            self.dismiss(self.color)
+        elif name == 'cancel':
+            self.action_cancel()
+
+    def action_cancel(self):
+        self.dismiss(None)
+
+
+class Dashboard(App):
+    TITLE = 'Sound Lighting'
+    CSS_PATH = 'dashboard.tcss'
+    BINDINGS = [('q', 'quit', 'Quit'), ('c', 'color', 'Color'),
+                ('a', 'auto', 'Auto'), ('s', 'idle', 'Standby'),
+                ('r', 'sound', 'Sound'), ('f', 'frequency', 'Flow')]
+
+    def __init__(self, backend=None):
+        super().__init__()
+        self.backend = backend or Backend()
+        self.displayed = None
+        self.slider_pending = {}
+        self.slider_saving = False
+        self.slider_timer = None
+        self.load_omarchy_theme()
+        self.history_at = 0
+        self.history = deque(maxlen=100)
+        self.data = {}
+        self.graph = {}
+        try:
+            self.initial = self.backend.settings()
+        except (OSError, ValueError):
+            self.initial = Settings()
+
+    def load_omarchy_theme(self):
+        directory = Path.home() / '.local/state/omarchy/current/theme'
+        colors = dict(accent='#7aa2f7', cyan='#449dab', background='#1a1b26',
+                      foreground='#a9b1d6', lighter_background='#292e42',
+                      yellow='#e0af68', green='#9ece6a', red='#f7768e', magenta='#ad8ee6')
+        try:
+            colors.update(tomllib.loads((directory / 'colors.toml').read_text()))
+        except (OSError, ValueError):
+            pass
+        try:
+            btop = dict(re.findall(r'theme\[([a-z_]+)\]="(#[0-9a-fA-F]{6})"',
+                                   (directory / 'btop.theme').read_text()))
+        except OSError:
+            btop = {}
+        self.music_colors = [colors[k] for k in ('red', 'yellow', 'green', 'cyan', 'accent', 'magenta')]
+        self.register_theme(Theme(name='omarchy', primary=btop.get('hi_fg', colors['accent']),
+            secondary=colors['cyan'], accent=colors['magenta'],
+            background=btop.get('main_bg', colors['background']),
+            foreground=btop.get('main_fg', colors['foreground']),
+            surface=btop.get('selected_bg', colors['lighter_background']),
+            panel=colors['background'], warning=colors['yellow'], success=colors['green'],
+            error=colors['red'], dark=colors.get('mode') != 'light', variables={
+                'light-border': btop.get('cpu_box', colors['magenta']),
+                'sound-border': btop.get('mem_box', colors['green']),
+                'link-border': btop.get('net_box', colors['red']),
+                'chart-low': btop.get('cpu_start', colors['cyan']),
+                'chart-high': btop.get('cpu_end', colors['magenta']),
+            }))
+        self.theme = 'omarchy'
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id='page'):
+            yield Static(f'sound lighting  ·  {VERSION}', id='brand')
+            yield Static(self.backend.connection_text, id='link', markup=False)
+            yield Static('Connecting…', id='health')
+            with Horizontal(id='panels'):
+                with Vertical(id='control-column'):
+                    with Vertical(id='controls', classes='panel'):
+                        yield Label('light', classes='eyebrow')
+                        yield Label('Mode')
+                        with Horizontal(classes='row', id='mode-buttons'):
+                            yield Button('Standby', compact=False, id='mode-idle')
+                            yield Button('Sound', compact=False, id='mode-sound')
+                            yield Button('Auto', compact=False, id='mode-auto')
+                        with Vertical(id='effect-controls'):
+                            yield Label('Effect')
+                            with Horizontal(classes='row'):
+                                yield Button('Palette', compact=True, id='source-palette')
+                                yield Button('Flow', compact=True, id='frequency-flow')
+                                yield Button('Warble', compact=True, id='frequency-warble')
+                                yield Button('Punch', compact=True, id='frequency-punch')
+                            yield Static('', id='effect-hint', classes='muted')
+                            with Vertical(id='punch-control'):
+                                yield Label('Punch · gentle ↔ vivid')
+                                yield Slider(self.initial.punch, id='punch-slider',
+                                             tooltip='Live intensity · fast attack at every setting')
+                        yield Label('Palette', id='palette-label')
+                        with Horizontal(classes='row', id='palette-entry'):
+                            yield Select([(scene_label(s, self.initial), s) for s in SCENES if s != 'spectrum'],
+                                         allow_blank=False, value=self.initial.scene, compact=True, id='scene')
+                            yield Button('Color…', compact=True, id='pick-color')
+                        yield Label('Brightness', id='brightness-label')
+                        yield Slider(round(self.initial.brightness / 255 * 100), id='brightness-slider',
+                                     tooltip='Live drag · Shift-drag fine · arrows ±1 · wheel ±2 · PgUp/PgDn ±10 · Esc cancels drag')
+                        with Vertical(id='white-control'):
+                            yield Label('White · warm ↔ cool')
+                            yield Slider(self.initial.white, id='white-slider', gradient=('#ff7828', '#bedcff'),
+                                         tooltip='Moving this selects steady White. RGB tint, not calibrated Kelvin.')
+                        yield Static('', id='saved', markup=False)
+                with Vertical(id='telemetry-column'):
+                    yield SpectrumPane(id='spectrum-pane', classes='panel')
+                    with Vertical(id='monitor', classes='panel'):
+                        yield Label('sound', classes='eyebrow')
+                        yield Static('—', id='mode')
+                        yield Static('Waiting for telemetry', id='level')
+                        yield ProgressBar(total=60, show_eta=False, show_percentage=False, id='meter')
+                        yield SoundHistory(list(self.history), id='wave')
+                        yield Static('RMS · 20s · midpoint = average', classes='muted')
+                        yield Static('', id='capture', markup=False)
+                        yield Static('', id='timing', markup=False)
+                    with Vertical(classes='panel', id='connection'):
+                        yield Label('link', classes='eyebrow')
+                        yield Static('Checking audio…', id='route', markup=False)
+                        yield Static('', id='runtime', markup=False)
+        yield Footer()
+
+    def on_mount(self):
+        for name, tip in dict(flow='Flow · responsive musical colors, balanced at 45%', warble='Warble · Flow with gentle ripples from the center of each strip', punch='Punch · musical colors with adjustable intensity').items():
+            self.query_one('#frequency-' + name).tooltip = tip
+        self.query_one('#wave').tooltip = '20-second rolling RMS average at half-height · twice average at the top · numeric RMS unchanged'
+        self.query_one('#spectrum').tooltip = ('Laptop FFT: 2,048 samples at 48 kHz (42.67 ms), up to 20 Hz. '
+            'SSH RTT and feature freshness are not sound-to-light latency.')
+        self.query_one('#timing').tooltip = ('Analysis window and requested PipeWire buffer only. '
+            'Bluetooth transport and LED smoothing add delay; these figures are not a total.')
+        if hasattr(self.backend, 'run'):
+            self.run_worker(self.backend.run(), name='Pi connection')
+        self.sync_controls()
+        self.refresh_status()
+        self.refresh_audio()
+        self.set_interval(.2, self.refresh_status)
+        self.set_interval(.05, self.refresh_spectrum)
+        self.set_interval(5, self.refresh_audio)
+        self.query_one('#scene').focus()
+
+    def on_resize(self, event):
+        self.query_one('#panels').set_class(event.size.width < 80, 'narrow')
+
+    async def on_unmount(self):
+        if hasattr(self.backend, 'close'):
+            await self.backend.close()
+
+    def on_descendant_blur(self, event):
+        if isinstance(event.widget, Slider):
+            self.call_after_refresh(self.sync_controls, keep_draft=True)
+
+    def sync_controls(self, keep_draft=False):
+        if not self.is_running or not self.query('#page'):
+            return
+        try:
+            config = self.backend.settings()
+        except (OSError, ValueError) as error:
+            self.message(str(error))
+            return
+        previous = self.displayed
+        self.displayed = config
+        if previous is None or previous.color != config.color:
+            picker = self.query_one('#scene', Select)
+            with picker.prevent(Select.Changed):
+                picker.set_options([(scene_label(s, config), s) for s in SCENES if s != 'spectrum'])
+        for name, value in [('scene', config.scene)]:
+            widget = self.query_one('#' + name, Select)
+            with widget.prevent(Select.Changed):
+                widget.value = value
+        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider, #spectrum-pane Button, #spectrum-pane Slider'):
+            widget.disabled = not self.backend.controls_available
+        if not self.slider_pending and not self.slider_saving:
+            for name, value in [('brightness', round(config.brightness / 255 * 100)), ('white', config.white), ('punch', config.punch)]:
+                slider = self.query_one('#' + name + '-slider', Slider)
+                if not slider.dragging and not slider.has_focus:
+                    slider.value = value
+        self.show_choices(config)
+        if self.backend.readonly:
+            self.message('Read-only')
+
+    def show_choices(self, config):
+        for value in ('idle', 'sound', 'auto'):
+            self.query_one('#mode-' + value, Button).variant = 'primary' if config.behavior == value else 'default'
+        self.query_one('#effect-controls').display = config.behavior != 'idle'
+        self.query_one('#source-palette', Button).variant = 'primary' if config.color_source == 'palette' else 'default'
+        for value in ('flow', 'warble', 'punch'):
+            self.query_one('#frequency-' + value, Button).variant = 'primary' if config.color_source == 'spectrum' and config.frequency_style == value else 'default'
+        effect = config.frequency_style if config.color_source == 'spectrum' else 'palette'
+        self.query_one('#effect-hint', Static).update(dict(palette='Your colorway · sound adds movement', flow='Musical color · smooth and responsive', warble='Musical color · center-out ripples', punch='Musical color · adjustable intensity')[effect])
+        self.query_one('#palette-label', Label).update('Standby palette' if config.color_source == 'spectrum' else 'Palette')
+        self.query_one('#spectrum-pane').display = config.color_source == 'spectrum'
+        self.query_one('#punch-control').display = config.color_source == 'spectrum' and config.frequency_style == 'punch'
+        self.query_one('#white-control').display = (config.color_source == 'palette' or config.behavior == 'idle') and config.scene == 'workshop'
+
+    def message(self, text):
+        self.query_one('#saved', Static).update(text)
+
+    @work(group='controls')
+    async def save(self, **values):
+        try:
+            await self.backend.apply(**values)
+        except (OSError, ValueError) as error:
+            self.message(str(error))
+            return
+        self.sync_controls()
+        self.message('Saved')
+
+    @on(Select.Changed)
+    def select_changed(self, event):
+        if event.value is Select.NULL or event.value != event.select.value:
+            return
+        try:
+            if getattr(self.backend.settings(), event.select.id) == event.value:
+                return
+        except (OSError, ValueError) as error:
+            self.message(str(error))
+            return
+        self.save(**{event.select.id: event.value})
+
+    @on(Slider.Changed)
+    def slider_changed(self, event):
+        if not self.backend.controls_available:
+            return
+        if event.slider.id == 'brightness-slider':
+            self.slider_pending['brightness'] = round(event.value * 255 / 100)
+        elif event.slider.id == 'white-slider':
+            self.slider_pending.update(white=event.value, scene='workshop', color_source='palette')
+        elif event.slider.id == 'punch-slider':
+            self.slider_pending['punch'] = event.value
+        if event.final and not self.slider_saving:
+            if self.slider_timer:
+                self.slider_timer.stop()
+                self.slider_timer = None
+            self.save_sliders()
+        elif not self.slider_timer and not self.slider_saving:
+            self.slider_timer = self.set_timer(.12, self.save_sliders)
+
+    @work(group='sliders')
+    async def save_sliders(self):
+        # One acknowledged write at a time; retain only the newest drag values.
+        self.slider_timer = None
+        if self.slider_saving or not self.slider_pending:
+            return
+        if not self.backend.controls_available:
+            self.slider_pending.clear()
+            return
+        self.slider_saving = True
+        try:
+            values, self.slider_pending = self.slider_pending, {}
+            await self.backend.apply(**values)
+            self.message('Saved')
+        except (OSError, ValueError) as error:
+            self.slider_pending.clear()  # Never replay a disconnected edit later.
+            self.message(str(error))
+        finally:
+            self.slider_saving = False
+            if self.slider_pending and self.is_running:
+                self.slider_timer = self.set_timer(.12, self.save_sliders)
+            self.sync_controls()
+
+    def on_button_pressed(self, event):
+        actions = {'pick-color': self.action_color}
+        name = event.button.id or ''
+        if name.startswith('mode-'):
+            self.save(behavior=name.removeprefix('mode-'))
+        elif name.startswith('source-'):
+            self.save(color_source=name.removeprefix('source-'))
+        elif name.startswith('frequency-'):
+            self.save(color_source='spectrum', frequency_style=name.removeprefix('frequency-'))
+        elif name in actions:
+            actions[name]()
+
+    def action_auto(self):
+        if not isinstance(self.screen, ColorPicker):
+            self.save(behavior='auto')
+
+    def action_idle(self):
+        if not isinstance(self.screen, ColorPicker):
+            self.save(behavior='idle')
+
+    def action_sound(self):
+        if not isinstance(self.screen, ColorPicker):
+            self.save(behavior='sound')
+
+    def action_frequency(self):
+        if not isinstance(self.screen, ColorPicker):
+            self.save(color_source='spectrum', frequency_style='flow')
+
+    def action_color(self):
+        if not self.backend.controls_available or isinstance(self.screen, ColorPicker):
+            return
+        try:
+            color = self.backend.settings().color
+        except (OSError, ValueError) as error:
+            self.message(str(error))
+            return
+        self.push_screen(ColorPicker(color), self.color_chosen)
+
+    def color_chosen(self, color):
+        if color is not None:
+            self.save(scene='custom', color=color, color_source='palette')
+
+    def refresh_spectrum(self):
+        if not self.is_running or not self.query('#page'):
+            return
+        pane = self.query_one(SpectrumPane)
+        if pane.display:
+            pane.show_status(self.backend.status())
+
+    def refresh_status(self):
+        if not self.is_running or not self.query('#page'):
+            return
+        self.data = d = self.backend.status()
+        stale = d['stale']
+        self.query_one('#link', Static).update(self.backend.connection_text)
+        if hasattr(self.backend, 'available') and not self.backend.available:
+            self.query_one('#route', Static).update(self.backend.error)
+        elif hasattr(self.backend, 'graph') and self.backend.graph != self.graph:
+            self.refresh_audio()
+        for widget in self.query('#controls Button, #controls Input, #controls Select, #controls Slider, #spectrum-pane Button, #spectrum-pane Slider'):
+            widget.disabled = not self.backend.controls_available
+        if not isinstance(self.screen, ColorPicker) and not isinstance(self.focused, Input):
+            try:
+                if self.backend.settings() != self.displayed:
+                    self.sync_controls(keep_draft=True)
+            except (OSError, ValueError):
+                pass
+        self.query_one('#health', Static).update(Text(
+            '● OFFLINE · awaiting telemetry' if stale else
+            f"● LIVE   {d.get('frequency_style', 'flow').upper() if d.get('spectrum_active') else d.get('scene', '?').upper()}  · {d.get('brightness_percent', '?')}%",
+            style=(self.current_theme.warning or '#ffbf69') if stale else
+                  (self.current_theme.success or '#6ee7c4')))
+        mode = ('No signal data' if stale else ('Sound · waiting for audio' if d.get('behavior') == 'sound' else 'Quiet → standby') if d.get('mode') == 'quiet'
+                else 'Reactive' if d.get('mode') == 'sound' else 'Standby')
+        self.query_one('#mode', Static).update(mode)
+        rms = 0 if stale else d.get('rms', 0)
+        db = max(-60, 20 * math.log10(max(rms, 0.000001)))
+        self.query_one('#meter', ProgressBar).update(progress=db + 60)
+        self.query_one('#level', Static).update('— dBFS' if stale else f'{db:5.1f} dBFS   /   RMS {rms:.4f}')
+        tick = int(time.monotonic() * 5)
+        if tick > self.history_at:
+            # Interpolate a brief scheduling gap, not a false silence spike.
+            # Long gaps and unavailable telemetry stay blank.
+            missed = min(99, max(0, tick-self.history_at-1)) if self.history_at else 0
+            previous = self.history[-1] if self.history else 0.
+            self.history.extend(
+                previous + (rms-previous) * (i+1)/(missed+1)
+                if not stale and missed <= 2 else 0. for i in range(missed))
+            self.history.append(rms)
+            self.history_at = tick
+        self.query_one('#wave', Sparkline).data = list(self.history)
+        age = d.get('sound_age_seconds')
+        quiet = d.get('quiet_seconds', 10)
+        timing = ('No sound yet' if age is None else f'Silent {age:.0f}s')
+        if d.get('mode') in ('sound', 'quiet') and d.get('behavior') == 'auto' and not stale:
+            timing = f'Standby in {max(0, quiet - (age or 0)):.0f}s'
+        self.query_one('#capture', Static).update('Capture —' if stale else
+            f"Capture {d.get('audio', '?')} · {d.get('sample_rate', 48000) / 1000:g} kHz · {d.get('sample_bits', 16)}-bit mono\n"
+            f"{timing} · glow {d.get('output_gain_percent', 100)}%\n"
+            f"Retries {d.get('capture_retries', 0)} · windows {d.get('audio_blocks', 0):,}\n"
+            f"Peak {d.get('peak', 0):.3f} · clipped {d.get('clipped_blocks', 0)}")
+        window, request = d.get('analysis_window_ms'), d.get('capture_requested_ms')
+        self.query_one('#timing', Static).update('Timing —' if stale else
+            f"Window {window:g} ms · request {request:g} ms\nLatency · end-to-end unmeasured"
+            if window is not None and request is not None else 'Latency · end-to-end unmeasured')
+        self.refresh_spectrum()
+        frame_age = d.get('audio_age_seconds')
+        age_text = 'no frames yet' if frame_age is None else f'frame {frame_age}s'
+        self.query_one('#runtime', Static).update('Engine —' if stale else
+            f"Up {d.get('uptime_seconds', 0) / 3600:.1f}h · PID {d.get('pid', '?')} · "
+            f"recorder {d.get('recorder_pid') or 'waiting'} · {age_text}")
+        if d.get('settings_error'):
+            self.message('Engine rejected settings: ' + d['settings_error'])
+
+    @work(exclusive=True, group='audio')
+    async def refresh_audio(self):
+        graph = await self.backend.audio(self.data.get('target', 'lighting_audio'))
+        self.graph = graph
+        text = graph.get('error')
+        if not text:
+            text = (f"BT  {', '.join(graph['peers']) or 'disconnected'}\n"
+                    f"Route  {', '.join(graph['routed']) or 'idle'} · "
+                    f"sink {'ready' if graph['sink'] else 'missing'}\n"
+                    f"USB  {', '.join(graph['usb']) or 'absent'} · {graph['inputs']} inputs"
+                    )
+        if self.is_running and self.query('#route'):
+            self.query_one('#route', Static).update(text)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--config', default='/etc/sound-lighting.json')
+    parser.add_argument('--status-file', default='/run/sound-lighting/status.json')
+    parser.add_argument('--audio-user', default='pi')
+    parser.add_argument('--read-only', action='store_true')
+    parser.add_argument('--host', help='Run locally and reconnect to this Pi SSH alias automatically')
+    parser.add_argument('--remote-repo', default='/home/pi/Sound-Lighting-Project')
+    args = parser.parse_args()
+    if args.host:
+        from remote_backend import RemoteBackend
+        backend = RemoteBackend(args.host, args.remote_repo, args.read_only)
+    else:
+        backend = Backend(args.config, args.status_file, args.audio_user, args.read_only)
+    Dashboard(backend).run()
+
+
+if __name__ == '__main__':
+    main()

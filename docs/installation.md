@@ -3,8 +3,8 @@
 From **0.2.0**, the Pi starts colorful, moving light at boot, even without a laptop,
 Bluetooth connection, USB sound card, or desktop login.
 
-When audio arrives, brightness smoothly starts following the music. After **15
-seconds below the sound threshold**, it blends back into the idle animation.
+When audio arrives, brightness smoothly starts following the music. On this feature branch, Auto quickly dims the glow, then after **ten seconds below the
+sound threshold**, it blends back into the idle animation.
 The colors keep flowing throughout. A connection opening by itself does not count
 as sound.
 
@@ -12,7 +12,9 @@ as sound.
 
 Supported layout: user `pi`, UID `1000`, repository at
 `/home/pi/Sound-Lighting-Project`, system Python `/usr/bin/python3`.
-GPIO21 / pin 40, GBR, 100 groups; confirm wiring and supply before enabling startup.
+Default: GPIO21 / pin 40, GBR, 100 groups; confirm wiring and supply before enabling startup.
+For two strips on GPIO18 and GPIO13, follow the [dual-strip setup](second-strip.md)
+after installing the base service. Its systemd override survives reinstalling the base unit.
 The existing paired laptop remains trusted; discoverability need not be enabled.
 
 ```sh
@@ -50,7 +52,9 @@ Boot ──► colorful idle animation
                ▼
          music-reactive glow
                │
-       15 seconds of quiet
+         quick dim
+               │
+        10 seconds of quiet
                └──────────────► colorful idle animation
 ```
 
@@ -107,7 +111,7 @@ sudo systemctl enable --now addy-bluetooth.service
 ```sh
 sudo lights scene rainbow
 sudo lights brightness 80
-sudo lights quiet 15
+sudo lights quiet 10
 sudo lights threshold 0.003
 lights status
 ```

@@ -22,6 +22,7 @@ class AudioRecoveryTests(unittest.TestCase):
                     break
                 time.sleep(0.02)
             self.assertGreater(rms, 0.1)
+            self.assertEqual(reader.status(time.monotonic())['capture_retries'], 0)
             first = reader.process
             children.append(first.pid)
             first.kill()
@@ -33,6 +34,7 @@ class AudioRecoveryTests(unittest.TestCase):
             self.assertIsNotNone(reader.process)
             children.append(reader.process.pid)
             self.assertNotEqual(children[0], children[1])
+            self.assertEqual(reader.status(time.monotonic())['capture_retries'], 1)
         finally:
             reader.close()
         for pid in children:

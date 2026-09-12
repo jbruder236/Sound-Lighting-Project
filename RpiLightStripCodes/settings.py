@@ -6,10 +6,10 @@ import os
 from pathlib import Path
 import tempfile
 
-VERSION = '1.0.0'
+VERSION = '1.1.0-dev'
 CONFIG_PATH = '/etc/sound-lighting.json'
 STATUS_PATH = '/run/sound-lighting/status.json'
-SCENES = ('rainbow', 'aurora', 'workshop')
+SCENES = ('rainbow', 'spectrum', 'aurora', 'sunset', 'ocean', 'ember', 'candy', 'workshop', 'custom')
 
 
 @dataclass(frozen=True)
@@ -17,8 +17,13 @@ class Settings:
     scene: str = 'rainbow'
     brightness: int = 255
     behavior: str = 'auto'
-    quiet_seconds: float = 15
+    quiet_seconds: float = 10
     threshold: float = 0.003
+    color: str = '#ff9646'
+    white: int = 50
+    color_source: str = 'palette'
+    frequency_style: str = 'flow'
+    punch: int = 50
 
     @classmethod
     def parse(cls, values):
@@ -29,11 +34,26 @@ class Settings:
             raise ValueError('Unknown settings: ' + ', '.join(sorted(unknown)))
         merged = asdict(cls()) | values
         if merged['scene'] not in SCENES:
-            raise ValueError('scene must be rainbow, aurora, or workshop')
-        if merged['behavior'] not in ('auto', 'idle'):
-            raise ValueError('behavior must be auto or idle')
+            raise ValueError('scene must be one of: ' + ', '.join(SCENES))
+        if merged['scene'] == 'spectrum':
+            merged.update(scene='rainbow', color_source='spectrum')
+        if merged['color_source'] not in ('palette', 'spectrum'):
+            raise ValueError('color_source must be palette or spectrum')
+        if merged['frequency_style'] not in ('flow', 'warble', 'punch'):
+            raise ValueError('frequency_style must be flow, warble, or punch')
+        if type(merged['punch']) is not int or not 0 <= merged['punch'] <= 100:
+            raise ValueError('punch must be an integer from 0 to 100')
+        color = merged['color']
+        if (not isinstance(color, str) or len(color) != 7 or color[0] != '#'
+                or any(c not in '0123456789abcdefABCDEF' for c in color[1:])):
+            raise ValueError('color must be a six-digit hex color, e.g. #ff9646')
+        merged['color'] = color.lower()
+        if merged['behavior'] not in ('auto', 'idle', 'sound'):
+            raise ValueError('behavior must be auto, idle (standby), or sound')
         if type(merged['brightness']) is not int or not 0 <= merged['brightness'] <= 255:
             raise ValueError('brightness must be an integer from 0 to 255')
+        if type(merged['white']) is not int or not 0 <= merged['white'] <= 100:
+            raise ValueError('white must be an integer from 0 (warm) to 100 (cool)')
         for key, low, high in [('quiet_seconds', 0.1, 3600), ('threshold', 0.000001, 1)]:
             value = merged[key]
             if type(value) not in (int, float) or not math.isfinite(value) or not low <= value <= high:

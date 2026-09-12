@@ -13,9 +13,37 @@ class SettingsTests(unittest.TestCase):
     def test_rejects_unsafe_and_mistyped_values(self):
         for values in ({'brightness': -1}, {'brightness': 256}, {'brightness': True},
                        {'quiet_seconds': float('nan')}, {'threshold': 0},
-                       {'scene': 'strobe'}, {'behavior': 'unknown'}, {'pin': 18}):
+                       {'white': -1}, {'white': 101}, {'white': True}, {'white': 50.5},
+                       {'color_source': 'bad'}, {'scene': 'strobe'}, {'behavior': 'unknown'}, {'pin': 18}):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Settings.parse(values)
+
+    def test_frequency_style_defaults_and_validation(self):
+        self.assertEqual(Settings.parse({}).frequency_style, 'flow')
+        for style in ('punch', 'warble'):
+            self.assertEqual(Settings.parse({'frequency_style': style}).frequency_style, style)
+        with self.assertRaises(ValueError):
+            Settings.parse({'frequency_style': 'strobe'})
+        self.assertEqual(Settings.parse({}).punch, 50)
+        for value in (0, 50, 100):
+            self.assertEqual(Settings.parse({'punch': value}).punch, value)
+        for value in (-1, 101, True, 50.5, '50'):
+            with self.assertRaises(ValueError):
+                Settings.parse({'punch': value})
+
+    def test_custom_color_validation_and_old_config_defaults(self):
+        self.assertEqual(Settings.parse({}).color, '#ff9646')
+        self.assertEqual(Settings.parse({}).white, 50)
+        self.assertEqual(Settings.parse({'color': '#ABCDEF'}).color, '#abcdef')
+        for value in ('red', '#fff', '#gg0000', '#00000000', 123, None):
+            with self.subTest(color=value), self.assertRaises(ValueError):
+                Settings.parse({'color': value})
+
+    def test_legacy_spectrum_migrates_and_new_modes_validate(self):
+        migrated = Settings.parse({'scene': 'spectrum'})
+        self.assertEqual((migrated.scene, migrated.color_source), ('rainbow', 'spectrum'))
+        self.assertEqual(migrated.quiet_seconds, 10)
+        self.assertEqual(Settings.parse({'behavior': 'sound'}).behavior, 'sound')
 
     def test_bad_update_keeps_last_good_and_recovers(self):
         with tempfile.TemporaryDirectory() as directory:

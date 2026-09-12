@@ -17,15 +17,32 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(state.mix, 0)
 
     def test_quiet_timeout_and_immediate_return(self):
-        state = lighting.LightState(0)
+        state = lighting.LightState(0, quiet_seconds=15)
         state.update(1, 0.1)
         self.assertEqual(state.mode, 'sound')
         state.update(15.99, 0)
-        self.assertEqual(state.mode, 'sound')
+        self.assertEqual(state.mode, 'quiet')
         state.update(16, 0)
         self.assertEqual(state.mode, 'idle')
         state.update(16.1, 0.1)
         self.assertEqual(state.mode, 'sound')
+
+    def test_three_modes_and_ten_second_auto_boundary(self):
+        state = lighting.LightState(0)
+        state.update(1, .1)
+        state.update(10.99, 0)
+        self.assertEqual(state.mode, 'quiet')
+        state.update(11, 0)
+        self.assertEqual(state.mode, 'idle')
+        state.update(12, .1, behavior='idle')
+        self.assertEqual(state.mode, 'idle')
+        state.update(30, 0, behavior='sound')
+        self.assertEqual(state.mode, 'quiet')  # Forced Sound never enters standby.
+        state.update(30.1, .1, behavior='sound')
+        self.assertEqual(state.mode, 'sound')
+        never_heard_audio = lighting.LightState(0)
+        never_heard_audio.update(1, 0, behavior='sound')
+        self.assertEqual(never_heard_audio.mode, 'quiet')
 
     def test_noise_does_not_reset_timeout(self):
         state = lighting.LightState(0)
@@ -69,14 +86,67 @@ class ModeTests(unittest.TestCase):
         for x, y in zip(a, b):
             self.assertEqual(x.index(min(x)), y.index(min(y)))
 
+    def test_silence_dims_quickly_then_standby_recovers(self):
+        state = lighting.LightState(0)
+        for i in range(1, 31):
+            state.update(i / 30, 0.1)
+        for i in range(31, 61):
+            state.update(i / 30, 0)
+        self.assertEqual(state.mode, 'quiet')
+        self.assertLess(state.gain, 0.13)
+        for i in range(61, 451):
+            state.update(i / 30, 0)
+        self.assertEqual(state.mode, 'idle')
+        self.assertGreater(state.gain, 0.95)
+        state.update(15.1, 0.1)
+        self.assertEqual(state.mode, 'sound')
+
 
 class SceneTests(unittest.TestCase):
-    def test_workshop_is_steady_regardless_of_audio(self):
+    def test_white_tint_is_bounded_steady_and_preserves_original(self):
+        state = lighting.LightState(0)
+        self.assertEqual(lighting.white_rgb(50), (255, 205, 145))
+        for tint in range(101):
+            rgb = lighting.white_rgb(tint)
+            self.assertTrue(all(0 <= c <= 255 for c in rgb))
+            self.assertEqual(lighting.frame(2, 20, state, 'workshop', white=tint), [rgb] * 2)
+        warm, cool = lighting.white_rgb(0), lighting.white_rgb(100)
+        self.assertGreater(warm[0], warm[2])
+        self.assertGreater(cool[2], cool[0])
+
+    def test_colorways_move_stay_saturated_and_have_distinct_palettes(self):
+        state = lighting.LightState(0)
+        frames = []
+        for scene in ('sunset', 'ocean', 'ember', 'candy'):
+            a = lighting.frame(100, 0, state, scene)
+            b = lighting.frame(100, 15, state, scene)
+            self.assertNotEqual(a, b)
+            self.assertTrue(all(min(rgb) == 0 and 100 < max(rgb) <= 255 for rgb in a + b))
+            frames.append(a)
+        self.assertEqual(len({tuple(frame) for frame in frames}), 4)
+
+    def test_custom_color_keeps_hue_and_moves(self):
+        state = lighting.LightState(0)
+        a = lighting.frame(100, 0, state, 'custom', '#ff0080')
+        b = lighting.frame(100, 15, state, 'custom', '#ff0080')
+        self.assertNotEqual(a, b)
+        self.assertTrue(all(g == 0 and 0 < blue < r <= 255 for r, g, blue in a + b))
+        self.assertEqual(lighting.frame(2, 0, state, 'custom', '#000000'), [(0, 0, 0)] * 2)
+
+    def test_workshop_is_steady_at_full_envelope(self):
         state = lighting.LightState(0)
         first = lighting.frame(100, 0, state, 'workshop')
         state.envelope = state.mix = 1
         self.assertEqual(first, lighting.frame(100, 100, state, 'workshop'))
         self.assertTrue(all(r > g > b for r, g, b in first))
+
+    def test_white_follows_sound_dimming_and_preview_tracks_master(self):
+        state = lighting.LightState(0)
+        state.gain = .08
+        self.assertLess(max(lighting.frame(1, 0, state, 'workshop')[0]), 25)
+        self.assertEqual(lighting.output_preview([(255, 0, 128)], 0), ['#000000'])
+        self.assertEqual(lighting.output_preview([(255, 0, 128)], 255), ['#ff0080'])
+        self.assertEqual(lighting.output_preview(None, 255), [])
 
     def test_aurora_is_colored_and_moves(self):
         state = lighting.LightState(0)

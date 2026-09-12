@@ -1,0 +1,14 @@
+[Unit]
+Description=Sound Lighting - laptop frequency color analysis
+Wants=pipewire-pulse.service
+After=pipewire-pulse.service
+
+[Service]
+EnvironmentFile=%h/.config/sound-lighting/spectrum.env
+ExecStart=%h/.local/share/sound-lighting/spectrum-venv/bin/python ${LIGHTING_REPO}/tools/stream_spectrum.py --host ${PI_HOST} --repo ${PI_REPO} --target ${AUDIO_TARGET}
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=8
+
+[Install]
+WantedBy=default.target

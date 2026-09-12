@@ -2,7 +2,7 @@
 
 **A garage light with a little life in it.**
 
-Rich color rolls along a 32-foot WS2811 strip. Music gently lifts the glow.
+Rich color rolls along 32-foot WS2811 strips. Music gently lifts the glow.
 The colors take their time. The room stays lit.
 
 Built for a Raspberry Pi 4, with a Python program small enough to understand
@@ -14,7 +14,29 @@ Laptop audio ────────────┤
                          └── Bluetooth ────► Pi ────► Addressable lights
 ```
 
+**Experimental:** [Frequency-driven color](docs/spectrum.md) on `feature/spectral-color`.
+A laptop FFT gives bass, mids, and highs their own colors; the Pi keeps its quiet
+and standby behavior. Choose **Warble + Auto** in the dashboard. A dedicated pane shows the frequency
+balance and outgoing colors; palette options have swatches. Standby, Sound, and
+Auto are visible buttons. The **Effect** row puts **Flow**, **Warble**, and **Punch** one click away: smooth musical color,
+gentle center-out ripples, or adjustable contrast. Auto uses a **10-second** quiet window.
+Adding another span? See the [dual-strip setup](docs/second-strip.md).
+
 ## Light it up
+
+**On the `TUI` branch:** an Omarchy app for the whole room.
+Press **SUPER+SPACE**, search **Sound Lighting**, and open it. Eight scenes, brightness and warm/cool sliders,
+a separate color-picker window, and live sound/connection health follow your Pi.
+If it is powered off, the app stays open and retries automatically.
+
+```sh
+# Install the app on Omarchy, using your existing SSH alias:
+python3 tools/install_omarchy.py --host rpi4
+```
+
+Closing the dashboard leaves the lights running. [Dashboard guide →](docs/dashboard.md)
+
+![Frequency controls on Omarchy](docs/images/spectrum.png)
 
 Want it to run whenever the Pi is powered? [Install boot startup](docs/installation.md).
 
@@ -22,8 +44,10 @@ Want it to run whenever the Pi is powered? [Install boot startup](docs/installat
 sudo bash install/install.sh
 ```
 
-It starts in colorful idle mode, follows music when it arrives, and returns to idle
-after **15 seconds of quiet**. No desktop login or USB sound card needed.
+It starts in colorful standby and follows music when it arrives. Silence dims the
+glow quickly, then colorful standby returns after **ten seconds of quiet**.
+No desktop login or USB sound card needed. Existing installations retain their
+saved timeout; use `sudo lights quiet 10` for this branch’s default.
 
 After installation, make changes while the lights keep running:
 
@@ -38,6 +62,11 @@ sudo lights brightness 80
 **Rainbow** is saturated and flowing. **Aurora** is cyan, blue, and violet in broad
 moving curtains. **Workshop** is steady warm-white utility light. Changes fade in
 without restarting, and your choices survive reboot.
+**Sunset**, **Ocean**, **Ember**, and **Candy** add slow, saturated colorways on
+this branch. The White slider tunes Workshop from warm to cool; its midpoint
+preserves the original tint. Try `sudo lights white 25`.
+**Custom**, on this branch, carries your chosen hue through slow motion and soft
+sound response. Choose it in the picker, or run `sudo lights color '#ff2870'`.
 
 Read the [daily controls and recovery guide](docs/operations.md), or the
 [hardware/audio setup](docs/setup.md) for a fresh machine. Always stop the service
@@ -48,11 +77,14 @@ forced kills and power loss cannot guarantee clearing.
 
 - **Color that stays colorful.** Fully saturated bands, slowly drifting along the strip.
 - **Music without the flicker.** Fast changes in sound soften into a gentle glow.
-- **Light between songs.** A colorful idle animation takes over after 15 seconds of quiet.
+- **Light between songs.** A brief dim settles into colorful standby after ten seconds.
+- **At home on Omarchy.** Launcher icon, your active theme, and automatic Pi reconnection.
 - **A cord less.** AUX feeds the speaker while Bluetooth carries the same audio to the Pi.
 - **No-fuss controls.** Change scenes, brightness, and sound behavior without a restart.
 
 ## Ready for the garage · 1.0.0
+
+`master` remains the tagged 1.0 release. `TUI` is the **1.1.0-dev** dashboard branch.
 
 | | Notes |
 | --- | --- |
@@ -73,8 +105,11 @@ See [version notes](CHANGELOG.md) for the concise release history.
 | [addy_bluetooth.py](RpiLightStripCodes/addy_bluetooth.py) | The live, sound-reactive lighting program. |
 | [settings.py](RpiLightStripCodes/settings.py) | Shared validation and atomic settings updates. |
 | [lights.py](tools/lights.py) | Scene controls and live health status. |
+| [dashboard.py](tools/dashboard.py) · [style](tools/dashboard.tcss) | Optional Textual dashboard and color dialog. |
+| [dashboard_data.py](tools/dashboard_data.py) | Settings and audio inspection, with no LED driver. |
 | [addy_demo.py](RpiLightStripCodes/addy_demo.py) | Utility light, color checks, and sound-free patterns. |
 | [connect_garage_audio.py](tools/connect_garage_audio.py) | Restore or continuously maintain AUX/Bluetooth output. |
+| [remote_backend.py](tools/remote_backend.py) · [remote_agent.py](tools/remote_agent.py) | Reconnecting SSH control; no extra server port. |
 | [legacy/](legacy/) | Earlier experiments, images, and iterations. Deprecated, preserved, visible. |
 
 Python **3.13.5**, NumPy **2.2.4**, and `rpi_ws281x` **5.0.0** are the verified combination.

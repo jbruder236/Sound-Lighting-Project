@@ -22,10 +22,16 @@ def main():
     commands.add_parser('config', help='Show saved settings')
     scene = commands.add_parser('scene', help='Crossfade to a scene')
     scene.add_argument('value', choices=SCENES)
+    color = commands.add_parser('color', help='Set a hex color and crossfade to the custom scene')
+    color.add_argument('value')
+    white = commands.add_parser('white', help='Steady white tint: 0 warm, 50 original Workshop, 100 cool')
+    white.add_argument('value', type=int)
     brightness = commands.add_parser('brightness', help='Set brightness percentage (0..100)')
     brightness.add_argument('value', type=int)
-    behavior = commands.add_parser('mode', help='Automatic sound reaction, or idle animation only')
-    behavior.add_argument('value', choices=('auto', 'idle'))
+    behavior = commands.add_parser('mode', help='Standby, forced sound, or automatic sound/standby')
+    behavior.add_argument('value', choices=('auto', 'standby', 'idle', 'sound'))
+    source = commands.add_parser('source', help='Palette colors or frequency-driven colors')
+    source.add_argument('value', choices=('palette', 'spectrum'))
     quiet = commands.add_parser('quiet', help='Seconds of silence before returning to idle')
     quiet.add_argument('value', type=float)
     threshold = commands.add_parser('threshold', help='Normalized RMS sound threshold')
@@ -53,6 +59,14 @@ def main():
             if not 0 <= args.value <= 100:
                 parser.error('Brightness must be 0..100 percent')
             values['brightness'] = round(args.value * 255 / 100)
+        elif args.command == 'color':
+            values.update(color=args.value, scene='custom', color_source='palette')
+        elif args.command == 'white':
+            values.update(white=args.value, scene='workshop', color_source='palette')
+        elif args.command == 'mode':
+            values['behavior'] = 'idle' if args.value == 'standby' else args.value
+        elif args.command == 'source':
+            values['color_source'] = args.value
         else:
             key = {'scene': 'scene', 'mode': 'behavior', 'quiet': 'quiet_seconds', 'threshold': 'threshold'}[args.command]
             values[key] = args.value

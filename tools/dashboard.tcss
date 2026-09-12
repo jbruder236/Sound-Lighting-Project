@@ -1,0 +1,69 @@
+Screen { background: $background; color: $foreground; }
+#page { padding: 0 1; scrollbar-gutter: stable; }
+#brand { color: $primary; text-style: bold; height: 1; }
+#link { color: $text-muted; height: auto; }
+#health { height: 1; margin-bottom: 1; }
+#panels { height: auto; }
+.panel { border: round $primary; padding: 0 1; height: auto; }
+#control-column { width: 1fr; height: auto; margin-right: 1; }
+#controls { width: 100%; border: round $light-border; }
+#telemetry-column { width: 1fr; height: auto; }
+#monitor { width: 100%; border: round $sound-border; }
+#connection { margin-top: 1; border: round $link-border; }
+#controls .eyebrow { color: $light-border; }
+#monitor .eyebrow { color: $sound-border; }
+#connection .eyebrow { color: $link-border; }
+#panels.narrow { layout: vertical; }
+#panels.narrow #control-column { width: 100%; margin: 0 0 1 0; }
+#panels.narrow #telemetry-column { width: 100%; }
+.eyebrow { text-style: bold; height: 1; }
+Label { color: $foreground; height: 1; }
+Select { margin: 0 0 1 0; }
+.row { height: 1; margin-bottom: 1; }
+Button { min-width: 7; width: 1fr; margin-right: 1; background: $surface; border: none; }
+Button:hover { background: $primary-muted; }
+Button.-primary { background: $primary; }
+Input { width: 1fr; }
+#saved { color: $text-muted; height: auto; min-height: 1; }
+#mode { text-style: bold; color: $sound-border; height: 1; }
+#level { height: 1; }
+ProgressBar { height: 1; margin: 1 0; }
+ProgressBar Bar { width: 1fr; }
+ProgressBar .bar--bar { color: $sound-border; }
+#wave { height: 4; background: $background; }
+#wave .sparkline--min-color { color: $chart-low; }
+#wave .sparkline--max-color { color: $chart-high; }
+.muted { color: $text-muted; height: auto; }
+#timing { height: auto; color: $text-muted; }
+#capture { margin-top: 1; height: auto; }
+#route { height: auto; }
+#runtime { color: $text-muted; height: auto; }
+Footer { background: $background; }
+ColorPicker { align: center middle; background: $background 80%; }
+#picker { width: 60; max-width: 95%; height: auto; padding: 1 2; border: round $light-border; background: $background; }
+#picker Static { height: auto; }
+#picker #swatch { height: 3; margin: 1 0; }
+#picker #color-error { height: 2; color: $warning; }
+
+#spectrum { height: auto; color: $secondary; }
+
+#spectrum-pane { margin-bottom: 1; border: round $secondary; }
+#spectrum-pane .eyebrow { color: $secondary; }
+#spectrum-control { height: auto; }
+BandChart { height: 7; }
+StripPreview { height: 1; margin-bottom: 1; }
+#effect-hint { margin-bottom: 0; }
+
+#punch-control, #white-control { height: auto; }
+
+#controls .row { margin-bottom: 0; }
+#controls Select { margin: 0; width: 1fr; }
+#controls Slider { height: 2; padding: 0 0 1 0; }
+#brightness-label { margin-top: 1; }
+#pick-color { width: 9; min-width: 9; }
+#palette-label { margin-top: 1; }
+#saved { min-height: 0; }
+
+#mode-buttons { height: 3; margin-bottom: 1; }
+#mode-buttons Button { height: 3; content-align: center middle; }
+#effect-controls { height: auto; }
