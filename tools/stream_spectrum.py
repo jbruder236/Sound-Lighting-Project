@@ -84,10 +84,15 @@ class Publisher:
                     process.stdin.write((json.dumps({'seq': reply['seq'], 'features': packet},
                                                     allow_nan=False) + '\n').encode())
                     await asyncio.wait_for(process.stdin.drain(), .5)
-                    reply = json.loads(await asyncio.wait_for(process.stdout.readline(), .5))
+                    # Allow a delayed acknowledgement to deliver the next
+                    # challenge. The receiver still rejects packets older than
+                    # .5s and the Pi expires features after .75s.
+                    reply = json.loads(await asyncio.wait_for(process.stdout.readline(), .9))
                     rtt = (time.monotonic() - sent) * 1000
                     if reply.get('accepted') is not True:
-                        raise ValueError('Expired feature challenge')
+                        # This reply already supplies a fresh challenge; sample
+                        # current audio instead of disconnecting for five seconds.
+                        continue
                     # No packet queue: sample again only after acknowledging this write.
                     await asyncio.sleep(max(0., INTERVAL - (time.monotonic() - start)))
             except (OSError, ValueError, KeyError, asyncio.TimeoutError) as error:

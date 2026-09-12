@@ -76,6 +76,30 @@ class AnalysisTests(unittest.TestCase):
 
 
 class TransportTests(unittest.IsolatedAsyncioTestCase):
+    async def test_publisher_keeps_connection_after_delayed_rejection(self):
+        with tempfile.TemporaryDirectory() as folder:
+            marker = Path(folder) / 'recovered'
+            publisher = Publisher('rpi4', '/unused', 'unused')
+            # A delayed rejection supplies a new challenge on the same link.
+            publisher.command = [sys.executable, '-u', '-c',
+                'import json,sys,time,pathlib\n'
+                'print(json.dumps({"seq": 0, "accepted": None}), flush=True)\n'
+                'json.loads(sys.stdin.readline())\n'
+                'time.sleep(.6)\n'
+                'print(json.dumps({"seq": 1, "accepted": False}), flush=True)\n'
+                'packet = json.loads(sys.stdin.readline())\n'
+                'assert packet["seq"] == 1\n'
+                'pathlib.Path(sys.argv[1]).touch()\n'
+                'time.sleep(10)\n', str(marker)]
+            task = asyncio.create_task(publisher.publish())
+            try:
+                async with asyncio.timeout(2):
+                    while not marker.exists():
+                        await asyncio.sleep(.02)
+            finally:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
     async def test_receiver_rejects_delayed_packets_and_exits_on_eof(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'features.json'

@@ -2,6 +2,11 @@
 
 ## Experimental · feature/spectral-color
 
+**FFT recovery:** Delayed acknowledgements get up to 900 ms to return; rejected
+packets use the next challenge without a five-second reconnect. Receiver expiry
+and stale-feature fallback stay unchanged. Wide music charts now show all six
+band percentages alongside their frequency ranges.
+
 **Relative RMS:** The last 20 seconds of average RMS sit at the graph midpoint;
 twice that average reaches the top. Silence remains zero; numeric levels stay
 absolute. Larger Mode buttons, Effect controls hidden in Standby, slider-only

@@ -122,8 +122,10 @@ Only one packet is in flight. Each needs a fresh receiver challenge, which expir
 after 0.5 seconds; buffered packets arriving after a stall are rejected. Received
 features expire after 0.75 seconds using the **Pi’s monotonic clock**, so laptop
 clock differences cannot make them appear fresh. Missing capture, SSH loss, or
-an absent laptop yields a smooth fallback to the selected palette. Capture and SSH retry after
-five seconds; normal shutdown terminates and reaps both children.
+an absent laptop yields a smooth fallback to the selected palette. The publisher
+waits up to 900 ms for an acknowledgement and reuses the next challenge after a
+rejection, sampling current audio without reconnecting. Capture failures and SSH
+loss retry after five seconds; normal shutdown terminates and reaps both children.
 
 The Pi’s local audio signal continues to decide dimming and standby. **Auto** and **Sound**
 allow spectral colors while sound is present; standby and missing features use

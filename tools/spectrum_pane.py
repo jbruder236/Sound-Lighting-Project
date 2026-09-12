@@ -56,7 +56,7 @@ class BandChart(Static):
                         glyph = '─'
                     text.append(' ' + glyph * (cell-2) + ' ', style=ramp[row])
                 text.append('\n')
-            for words in (BANDS, RANGES):
+            for words in (BANDS, RANGES, tuple(f'{raw:.0%}' for raw in self.levels)):
                 for label, color in zip(words, colors):
                     text.append(label.center(cell), style=color)
                 text.append('\n')
